@@ -1,11 +1,15 @@
 import { getRedisClient } from "../../config/redis";
 
 /**
- * Interface do cache de roles de usuário.
+ * Interface do cache de roles (papéis) de usuário.
  *
- * Evita consultas repetidas ao banco para checar roles.
+ * Armazena as roles atribuídas a cada usuário para evitar consultas
+ * repetidas ao banco de dados durante a autorização de requisições.
  * Chave: `roles:{userId}`
- * TTL padrão: 5 minutos (300 segundos)
+ *
+ * @remarks
+ * TTL padrão: 5 minutos (300 segundos).
+ * Deve ser invalidado sempre que as roles do usuário forem alteradas.
  */
 export interface IRoleCache {
   get(userId: string): Promise<string[] | null>;
@@ -13,14 +17,11 @@ export interface IRoleCache {
   invalidate(userId: string): Promise<void>;
 }
 
-const DEFAULT_TTL = 60 * 5; // 5 minutos
+const DEFAULT_TTL = 60 * 5;
+
 const PREFIX = "roles";
 
 export class RoleCache implements IRoleCache {
-  /**
-   * Busca as roles de um usuário no cache.
-   * Retorna null se não houver cache (deve buscar no banco).
-   */
   async get(userId: string): Promise<string[] | null> {
     const redis = getRedisClient();
     const data = await redis.get(`${PREFIX}:${userId}`);
@@ -28,9 +29,6 @@ export class RoleCache implements IRoleCache {
     return JSON.parse(data) as string[];
   }
 
-  /**
-   * Armazena as roles de um usuário no cache.
-   */
   async set(
     userId: string,
     roles: string[],
@@ -40,10 +38,6 @@ export class RoleCache implements IRoleCache {
     await redis.setex(`${PREFIX}:${userId}`, ttlSeconds, JSON.stringify(roles));
   }
 
-  /**
-   * Invalida o cache de roles de um usuário.
-   * Deve ser chamado sempre que as roles do usuário forem alteradas.
-   */
   async invalidate(userId: string): Promise<void> {
     const redis = getRedisClient();
     await redis.del(`${PREFIX}:${userId}`);

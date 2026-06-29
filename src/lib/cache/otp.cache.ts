@@ -3,12 +3,15 @@ import { getRedisClient } from "../../config/redis";
 /**
  * Interface do cache de OTP (One-Time Password).
  *
- * Armazena códigos temporários para autenticação de dois fatores (2FA),
- * confirmação de ações sensíveis, etc.
+ * Armazena códigos temporários usados em fluxos de autenticação de
+ * dois fatores (2FA), confirmação de ações sensíveis (exclusão de conta,
+ * pagamento), ou verificação alternativa de identidade.
  * Chave: `otp:{action}:{userId}`
- * TTL padrão: 10 minutos (600 segundos)
  *
- * TODO: Integrar com o fluxo de 2FA do Better Auth.
+ * @remarks
+ * TTL padrão: 10 minutos (600 segundos).
+ * Deve ser invalidado após uso bem-sucedido ou após exceder
+ * o limite de tentativas.
  */
 export interface IOtpCache {
   set(
@@ -21,14 +24,11 @@ export interface IOtpCache {
   invalidate(action: string, userId: string): Promise<void>;
 }
 
-const DEFAULT_TTL = 60 * 10; // 10 minutos
+const DEFAULT_TTL = 60 * 10;
+
 const PREFIX = "otp";
 
 export class OtpCache implements IOtpCache {
-  /**
-   * Armazena um código OTP para um usuário e ação específica.
-   * Exemplos de action: '2fa', 'confirm_delete', 'confirm_payment'
-   */
   async set(
     action: string,
     userId: string,
@@ -39,18 +39,11 @@ export class OtpCache implements IOtpCache {
     await redis.setex(`${PREFIX}:${action}:${userId}`, ttlSeconds, code);
   }
 
-  /**
-   * Busca o código OTP ativo de um usuário para uma ação.
-   * Retorna null se não existir ou estiver expirado.
-   */
   async get(action: string, userId: string): Promise<string | null> {
     const redis = getRedisClient();
     return redis.get(`${PREFIX}:${action}:${userId}`);
   }
 
-  /**
-   * Invalida o OTP após uso ou após muitas tentativas incorretas.
-   */
   async invalidate(action: string, userId: string): Promise<void> {
     const redis = getRedisClient();
     await redis.del(`${PREFIX}:${action}:${userId}`);

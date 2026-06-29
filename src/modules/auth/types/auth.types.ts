@@ -1,11 +1,7 @@
-export interface BearerAuthContext {
-  userId: string;
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  username: string;
   roles: string[];
-}
-
-export interface JwtPayload {
-  sub: string;
-  roles: string[];
-  iat?: number;
-  exp?: number;
 }

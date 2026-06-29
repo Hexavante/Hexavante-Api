@@ -3,11 +3,13 @@ import { getRedisClient } from "../../config/redis";
 /**
  * Interface do cache de tokens de redefinição de senha.
  *
- * Armazena tokens temporários gerados no fluxo de "esqueci minha senha".
+ * Armazena tokens temporários gerados durante o fluxo de "esqueci minha senha".
+ * Cada token é de uso único (one-time) e associado a um userId.
  * Chave: `pwd_reset:{token}`
- * TTL padrão: 1 hora (3600 segundos)
  *
- * TODO: Integrar com o fluxo de reset de senha do Better Auth.
+ * @remarks
+ * TTL padrão: 1 hora (3600 segundos).
+ * O token deve ser invalidado imediatamente após o uso.
  */
 export interface IPasswordResetCache {
   set(token: string, userId: string, ttlSeconds?: number): Promise<void>;
@@ -15,13 +17,11 @@ export interface IPasswordResetCache {
   invalidate(token: string): Promise<void>;
 }
 
-const DEFAULT_TTL = 60 * 60; // 1 hora
+const DEFAULT_TTL = 60 * 60;
+
 const PREFIX = "pwd_reset";
 
 export class PasswordResetCache implements IPasswordResetCache {
-  /**
-   * Armazena um token de reset associado a um userId.
-   */
   async set(
     token: string,
     userId: string,
@@ -31,18 +31,11 @@ export class PasswordResetCache implements IPasswordResetCache {
     await redis.setex(`${PREFIX}:${token}`, ttlSeconds, userId);
   }
 
-  /**
-   * Busca o userId associado a um token de reset.
-   * Retorna null se o token não existir ou estiver expirado.
-   */
   async get(token: string): Promise<string | null> {
     const redis = getRedisClient();
     return redis.get(`${PREFIX}:${token}`);
   }
 
-  /**
-   * Invalida o token após uso (one-time use).
-   */
   async invalidate(token: string): Promise<void> {
     const redis = getRedisClient();
     await redis.del(`${PREFIX}:${token}`);

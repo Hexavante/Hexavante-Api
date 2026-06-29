@@ -1,6 +1,5 @@
-import bcrypt from 'bcryptjs';
+import { auth } from '../../../config/auth';
 import { prisma } from '../../../config/prisma';
-import { signJWT, verifyJWT, JWTPayload } from '../../../lib/jwt';
 import { RegisterInput } from '../schemas/auth.schemas';
 
 const MIN_AGE = 13;
@@ -20,9 +19,15 @@ function assertMinimumAge(birthDate: Date): void {
 }
 
 export class AuthService {
-  async validateCredentials(email: string, password: string) {
-    const user = await prisma.user.findUnique({
-      where: { email },
+  async signIn(email: string, password: string) {
+    const { user } = await auth.api.signInEmail({
+      body: { email, password },
+    });
+
+    if (!user) return null;
+
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
       include: {
         roles: {
           include: { role: true },
@@ -30,30 +35,18 @@ export class AuthService {
       },
     });
 
-    if (!user?.passwordHash) {
-      return null;
-    }
-
-    const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) {
-      return null;
-    }
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLogin: new Date() },
-    });
+    if (!dbUser) return null;
 
     return {
-      id: user.id,
-      name: user.fullName,
-      email: user.email,
-      username: user.username,
-      roles: user.roles.map((r) => r.role.name),
+      id: dbUser.id,
+      name: dbUser.fullName,
+      email: dbUser.email,
+      username: dbUser.username,
+      roles: dbUser.roles.map((r) => r.role.name),
     };
   }
 
-  async registerUser(data: RegisterInput) {
+  async signUp(data: RegisterInput) {
     assertMinimumAge(data.birthDate);
 
     const existing = await prisma.user.findFirst({
@@ -69,29 +62,29 @@ export class AuthService {
       throw new Error('Este nome de usuário já está em uso.');
     }
 
-    const passwordHash = await bcrypt.hash(data.password, 12);
+    const { user } = await auth.api.signUpEmail({
+      body: {
+        name: data.fullName,
+        email: data.email,
+        password: data.password,
+      },
+    });
+
     const userRole = await prisma.role.findUnique({ where: { name: 'USER' } });
 
-    if (!userRole) {
-      throw new Error('Papel USER não encontrado. Execute o seed do banco.');
-    }
-
-    const user = await prisma.user.create({
+    const created = await prisma.user.update({
+      where: { id: user.id },
       data: {
         username: data.username,
         fullName: data.fullName,
-        email: data.email,
-        passwordHash,
         birthDate: data.birthDate,
-        roles: {
-          create: { roleId: userRole.id },
-        },
-        xp: {
-          create: {},
-        },
-        wallet: {
-          create: {},
-        },
+        ...(userRole && {
+          roles: {
+            create: { roleId: userRole.id },
+          },
+        }),
+        xp: { create: {} },
+        wallet: { create: {} },
       },
       select: {
         id: true,
@@ -101,15 +94,15 @@ export class AuthService {
       },
     });
 
-    return user;
+    return created;
   }
 
-  async createToken(userId: string, roles: string[]): Promise<string> {
-    return signJWT({ sub: userId, roles });
+  async signOut(headers: Record<string, string | string[] | undefined>) {
+    await auth.api.signOut({ headers: headers as any });
   }
 
-  async verifyToken(token: string): Promise<JWTPayload> {
-    return verifyJWT(token);
+  async getSession(headers: Record<string, string | string[] | undefined>) {
+    return auth.api.getSession({ headers: headers as any });
   }
 
   async getUserById(userId: string) {

@@ -5,11 +5,16 @@ import { logger } from "./config/logger";
 import { closeRedisClient } from "./config/redis";
 import { authRoutes } from "./modules/auth/routes/auth.routes";
 import { healthRoutes } from "./modules/health/health.routes";
+import { userRoutes } from "./modules/users/routes/user.routes";
+import { authorizationRoutes } from "./modules/authorization/routes/authorization.routes";
+import { courseRoutes } from "./modules/courses/routes/course.routes";
+import { gamificationRoutes } from "./modules/gamification/routes/gamification.routes";
 import { prisma } from "./config/prisma";
 import { corsPlugin } from "./plugins/cors";
 import { helmetPlugin } from "./plugins/helmet";
 import { rateLimitPlugin } from "./plugins/rate-limit";
 import { compressPlugin } from "./plugins/compress";
+import { authPlugin } from "./plugins/auth";
 
 const fastify = Fastify({
   logger: false,
@@ -24,6 +29,8 @@ await fastify.register(corsPlugin);
 await fastify.register(helmetPlugin);
 await fastify.register(rateLimitPlugin);
 await fastify.register(compressPlugin);
+
+await fastify.register(authPlugin);
 
 await fastify.register(swagger, {
   openapi: {
@@ -118,6 +125,10 @@ fastify.addSchema({
 
 await fastify.register(healthRoutes);
 await fastify.register(authRoutes);
+await fastify.register(userRoutes);
+await fastify.register(authorizationRoutes);
+await fastify.register(courseRoutes);
+await fastify.register(gamificationRoutes);
 
 fastify.get("/", async () => {
   return {

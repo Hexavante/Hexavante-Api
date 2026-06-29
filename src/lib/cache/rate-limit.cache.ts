@@ -3,10 +3,14 @@ import { getRedisClient } from "../../config/redis";
 /**
  * Interface do cache de rate limiting customizado.
  *
- * Complementa o @fastify/rate-limit para casos específicos de negócio
- * (ex: limite de tentativas de login, envio de email, etc).
+ * Complementa o rate limit global do Fastify para cenários específicos
+ * de negócio como limite de tentativas de login, envio de e-mails,
+ * reenvio de OTP, etc.
  * Chave: `rl:{action}:{identifier}`
- * TTL padrão: 15 minutos (900 segundos)
+ *
+ * @remarks
+ * TTL padrão: 15 minutos (900 segundos).
+ * O TTL é definido apenas na primeira incrementação (chave nova).
  */
 export interface IRateLimitCache {
   increment(
@@ -18,15 +22,11 @@ export interface IRateLimitCache {
   reset(action: string, identifier: string): Promise<void>;
 }
 
-const DEFAULT_TTL = 60 * 15; // 15 minutos
+const DEFAULT_TTL = 60 * 15;
+
 const PREFIX = "rl";
 
 export class RateLimitCache implements IRateLimitCache {
-  /**
-   * Incrementa o contador de tentativas para uma ação/identificador.
-   * Retorna o valor atual após incremento.
-   * O TTL só é definido na primeira chamada (quando a chave não existe).
-   */
   async increment(
     action: string,
     identifier: string,
@@ -41,18 +41,12 @@ export class RateLimitCache implements IRateLimitCache {
     return count;
   }
 
-  /**
-   * Retorna o número atual de tentativas. Retorna 0 se não houver registro.
-   */
   async get(action: string, identifier: string): Promise<number> {
     const redis = getRedisClient();
     const data = await redis.get(`${PREFIX}:${action}:${identifier}`);
     return data ? parseInt(data, 10) : 0;
   }
 
-  /**
-   * Reseta o contador (ex: após login bem-sucedido).
-   */
   async reset(action: string, identifier: string): Promise<void> {
     const redis = getRedisClient();
     await redis.del(`${PREFIX}:${action}:${identifier}`);
