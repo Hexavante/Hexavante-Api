@@ -9,8 +9,9 @@ WORKDIR /app
 RUN apk add --no-cache libc6-compat openssl
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npx prisma generate
-RUN npm run build && node scripts/fix-imports.mjs
+RUN ./node_modules/.bin/prisma generate
+RUN echo '{"extends": "./tsconfig.json", "exclude": ["node_modules", "dist", "**/__tests__"]}' > tsconfig.build.json
+RUN ./node_modules/.bin/tsc -p tsconfig.build.json && node scripts/fix-imports.mjs
 
 FROM node:22-alpine AS runner
 WORKDIR /app
@@ -23,7 +24,6 @@ COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/docker-entrypoint.sh ./docker-entrypoint.sh
 
 RUN chmod +x ./docker-entrypoint.sh
@@ -31,4 +31,4 @@ RUN chmod +x ./docker-entrypoint.sh
 EXPOSE 3045
 ENV PORT=3045
 
-ENTRYPOINT ["./docker-entrypoint.sh"]
+CMD ["sh", "-c", "./docker-entrypoint.sh"]

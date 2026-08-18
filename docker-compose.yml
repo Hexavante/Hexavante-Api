@@ -1,0 +1,63 @@
+services:
+  mysql:
+    image: mariadb:11
+    container_name: hexavante-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: hexavante
+      MYSQL_USER: hexavante
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --max-connections=200
+      --innodb-buffer-pool-size=512M
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: hexavante-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    container_name: hexavante-api
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "mysql://hexavante:gBcfTf%2F0REh18S4rpr1MIzyt379g3XuT@mysql:3306/hexavante"
+      AUTH_SECRET: ${AUTH_SECRET}
+      REDIS_URL: redis://redis:6379
+      PORT: 3045
+      HOST: 0.0.0.0
+      NODE_ENV: production
+      CORS_ORIGIN: "*"
+    ports:
+      - "3045:3045"
+
+volumes:
+  mysql_data:
+  redis_data:
