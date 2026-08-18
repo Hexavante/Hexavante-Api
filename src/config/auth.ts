@@ -21,6 +21,16 @@ const adminUserIds = process.env.ADMIN_USER_IDS
   ? process.env.ADMIN_USER_IDS.split(',').map((id) => id.trim()).filter(Boolean)
   : [];
 
+function generateUsername(name?: string): string {
+  const base = (name || 'user')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '')
+    .slice(0, 20) || 'user';
+  return `${base}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL || process.env.AUTH_URL || 'http://localhost:3045',
   database: prismaAdapter(prisma, {
@@ -34,12 +44,12 @@ export const auth = betterAuth({
     additionalFields: {
       username: {
         type: 'string',
-        required: true,
+        required: false,
         input: true,
       },
       birthDate: {
         type: 'string',
-        required: true,
+        required: false,
         input: true,
       },
     },
@@ -80,11 +90,30 @@ export const auth = betterAuth({
       clientId: process.env.GOOGLE_CLIENT_ID || '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
       enabled: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+      mapProfile: async (user: { name?: string; given_name?: string; family_name?: string; picture?: string; email_verified?: boolean }) => {
+        const name = user.name || '';
+        const fullName = [user.given_name, user.family_name].filter(Boolean).join(' ').trim() || name;
+        return {
+          fullName,
+          username: generateUsername(name),
+          image: user.picture,
+          emailVerified: user.email_verified ?? false,
+        };
+      },
     },
     github: {
       clientId: process.env.GITHUB_CLIENT_ID || '',
       clientSecret: process.env.GITHUB_CLIENT_SECRET || '',
       enabled: !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
+      mapProfile: async (user: { name?: string; login?: string; avatar_url?: string }) => {
+        const name = user.name || user.login || '';
+        return {
+          fullName: name,
+          username: generateUsername(name),
+          image: user.avatar_url,
+          emailVerified: true,
+        };
+      },
     },
   },
   plugins: [

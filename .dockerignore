@@ -46,9 +46,6 @@ coverage/
 docs/
 LICENSE
 
-# --- Scripts ---
-scripts/
-
 # --- Misc ---
 .dockerignore
 Dockerfile
@@ -56,4 +53,3 @@ docker-compose*.yml
 .prettierrc
 eslint.config.js
 vitest.config.ts
-tsconfig.json

@@ -25,11 +25,17 @@ export async function authRoutes(fastify: FastifyInstance) {
   // GET redirect for OAuth (browser-friendly)
   fastify.get('/oauth/:provider', async (request, reply) => {
     const { provider } = request.params as { provider: string };
-    const { callbackURL } = request.query as { callbackURL?: string };
+    const { callbackURL: rawCallbackURL } = request.query as { callbackURL?: string };
     const host = request.headers.host || 'localhost:3045';
     const isLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1');
     const baseUrl = `${isLocal ? 'http' : 'https'}://${host}`;
     const socialUrl = new URL('/api/auth/sign-in/social', baseUrl);
+
+    // Resolve relative callbackURLs to the web app's origin
+    const webOrigin = process.env.CORS_ORIGIN?.split(',')[0]?.trim() || 'https://hexavante.com.br';
+    const callbackURL = rawCallbackURL
+      ? (rawCallbackURL.startsWith('http') ? rawCallbackURL : `${webOrigin}${rawCallbackURL.startsWith('/') ? '' : '/'}${rawCallbackURL}`)
+      : `${webOrigin}/`;
 
     if (callbackURL) {
       socialUrl.searchParams.set('callbackURL', callbackURL);
@@ -43,7 +49,7 @@ export async function authRoutes(fastify: FastifyInstance) {
     const req = new Request(socialUrl.toString(), {
       method: 'POST',
       headers,
-      body: JSON.stringify({ provider }),
+      body: JSON.stringify({ provider, callbackURL }),
     });
 
     const response = await auth.handler(req);

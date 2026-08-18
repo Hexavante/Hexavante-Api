@@ -7,8 +7,8 @@ if [ ! -f dist/server.js ]; then
 fi
 
 if [ -n "$DATABASE_URL" ]; then
-  echo "Aplicando migrations do banco..."
-  npx prisma migrate deploy
+  echo "Sincronizando schema do banco..."
+  npx prisma db push --skip-generate 2>&1 || echo "Aviso: db push falhou, continuando..."
 fi
 
 echo "Iniciando Hexavante API..."
