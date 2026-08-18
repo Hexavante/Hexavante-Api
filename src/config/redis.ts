@@ -5,8 +5,12 @@ let redisClient: Redis | null = null;
 
 export function getRedisClient(): Redis {
   if (!redisClient) {
-    const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-    
+    const password = process.env.REDIS_PASSWORD;
+    const baseUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+    const redisUrl = password
+      ? baseUrl.replace('redis://', `redis://:${encodeURIComponent(password)}@`)
+      : baseUrl;
+
     redisClient = new Redis(redisUrl, {
       maxRetriesPerRequest: 3,
       retryStrategy: (times) => {

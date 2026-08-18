@@ -3,6 +3,7 @@ import { UserController } from "../controller/user.controller";
 import { UserService } from "../service/user.service";
 import { UserRepository } from "../repository/user.repository";
 import { authenticate } from "../../../middlewares/authenticate";
+import { optionalAuth } from "../../../middlewares/optionalAuth";
 import { asyncHandler } from "../../../lib/errors/errorHandler";
 
 export async function userRoutes(fastify: FastifyInstance) {
@@ -14,6 +15,12 @@ export async function userRoutes(fastify: FastifyInstance) {
     "/api/v1/users/me",
     { preHandler: [authenticate] },
     asyncHandler(userController.me.bind(userController)),
+  );
+
+  fastify.get(
+    "/api/v1/users/:username",
+    { preHandler: [optionalAuth] },
+    asyncHandler(userController.getPublicProfile.bind(userController)),
   );
 
   fastify.patch(

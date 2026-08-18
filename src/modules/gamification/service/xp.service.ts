@@ -1,6 +1,7 @@
 import type { IGamificationRepository } from "../repository/gamification.repository";
 import { buildPagination } from "../../../lib/serializers/base";
 import { NotFoundError } from "../../../lib/errors/AppError";
+import type { RankingLeague, XpSource } from "@prisma/client";
 
 const ACHIEVEMENTS = [
   { key: "first_lesson", name: "Primeira Aula", description: "Complete sua primeira aula" },
@@ -21,6 +22,15 @@ export function calculateLevel(totalXp: number): number {
   return Math.floor(Math.sqrt(totalXp / 100));
 }
 
+export function xpRequiredForLevel(level: number): number {
+  return level * 100;
+}
+
+export function xpProgressPercent(level: number, currentXp: number): number {
+  const needed = xpRequiredForLevel(level);
+  return needed > 0 ? Math.min(100, Math.round((currentXp / needed) * 100)) : 0;
+}
+
 export function getAllAchievements() {
   return ACHIEVEMENTS;
 }
@@ -39,7 +49,7 @@ export class XpService {
   async award(
     userId: string,
     amount: number,
-    source: string,
+    source: XpSource,
     sourceId: string,
     description?: string,
   ): Promise<AwardXpResult> {
@@ -89,6 +99,18 @@ export class XpService {
     };
   }
 
+  async getProfile(userId: string) {
+    const userXp = await this.gamificationRepository.getOrCreateUserXp(userId);
+    return {
+      level: userXp.level,
+      currentXp: userXp.currentXp,
+      totalXp: userXp.totalXp,
+      league: userXp.league,
+      xpToNextLevel: xpRequiredForLevel(userXp.level),
+      progressPercent: xpProgressPercent(userXp.level, userXp.currentXp),
+    };
+  }
+
   async getHistory(userId: string, page: number = 1, limit: number = 20) {
     const skip = (page - 1) * limit;
     const { transactions, total } = await this.gamificationRepository.getXpHistory(
@@ -121,10 +143,10 @@ export class XpService {
     }));
   }
 
-  private calculateLeague(level: number): string {
-    if (level >= 25) return "GOLD";
-    if (level >= 10) return "SILVER";
-    return "BRONZE";
+  private calculateLeague(level: number): RankingLeague {
+    if (level >= 25) return "GOLD" as RankingLeague;
+    if (level >= 10) return "SILVER" as RankingLeague;
+    return "BRONZE" as RankingLeague;
   }
 
   private checkAchievementCondition(

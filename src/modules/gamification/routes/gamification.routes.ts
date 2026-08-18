@@ -33,6 +33,16 @@ export async function gamificationRoutes(fastify: FastifyInstance) {
   );
 
   fastify.get(
+    "/api/v1/users/me/xp-profile",
+    { preHandler: [authenticate] },
+    asyncHandler(async (request, reply) => {
+      const userId = request.user!.id;
+      const profile = await xpService.getProfile(userId);
+      reply.send(profile);
+    }),
+  );
+
+  fastify.get(
     "/api/v1/users/:id/xp",
     asyncHandler(async (request, reply) => {
       const { id } = request.params as { id: string };

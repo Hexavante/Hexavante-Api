@@ -1,5 +1,6 @@
 import { prisma } from "../../../config/prisma";
 import type { PaginationParams } from "../../../lib/serializers/base";
+import type { RankingLeague, XpSource } from "@prisma/client";
 
 export interface IGamificationRepository {
   getCurrentSeason(): Promise<{ seasonKey: string; startsAt: Date; endsAt: Date } | null>;
@@ -7,12 +8,12 @@ export interface IGamificationRepository {
   getLeaderboard(seasonKey: string, skip: number, limit: number): Promise<{
     entries: Array<{
       userId: string;
-      username: string;
+      username: string | null;
       fullName: string;
       avatarUrl: string | null;
       level: number;
       totalXp: number;
-      league: string;
+      league: RankingLeague;
       rank: number;
     }>;
     total: number;
@@ -37,20 +38,20 @@ export interface IGamificationRepository {
     level: number;
     currentXp: number;
     totalXp: number;
-    league: string;
+    league: RankingLeague;
   }>;
 
   createXpTransaction(
     userId: string,
     amount: number,
-    source: string,
+    source: XpSource,
     sourceId: string,
     description?: string,
   ): Promise<void>;
 
   updateUserXp(
     userXpId: string,
-    data: { level: number; currentXp: number; totalXp: number; league?: string },
+    data: { level: number; currentXp: number; totalXp: number; league?: RankingLeague },
   ): Promise<void>;
 
   getUserAchievements(userId: string): Promise<Array<{ achievementKey: string; unlockedAt: Date }>>;
@@ -161,7 +162,7 @@ export class GamificationRepository implements IGamificationRepository {
   async createXpTransaction(
     userId: string,
     amount: number,
-    source: string,
+    source: XpSource,
     sourceId: string,
     description?: string,
   ): Promise<void> {
@@ -169,7 +170,7 @@ export class GamificationRepository implements IGamificationRepository {
       data: {
         userId,
         amount,
-        source: source as any,
+        source,
         sourceId,
         description,
       },
@@ -178,7 +179,7 @@ export class GamificationRepository implements IGamificationRepository {
 
   async updateUserXp(
     userXpId: string,
-    data: { level: number; currentXp: number; totalXp: number; league?: string },
+    data: { level: number; currentXp: number; totalXp: number; league?: RankingLeague },
   ): Promise<void> {
     await prisma.userXP.update({
       where: { id: userXpId },
@@ -186,7 +187,7 @@ export class GamificationRepository implements IGamificationRepository {
         level: data.level,
         currentXp: data.currentXp,
         totalXp: data.totalXp,
-        ...(data.league && { league: data.league as any }),
+        ...(data.league && { league: data.league }),
       },
     });
   }

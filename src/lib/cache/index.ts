@@ -1,6 +1,3 @@
-export type { ISessionCache } from "./session.cache";
-export { SessionCache } from "./session.cache";
-
 export type { IRoleCache } from "./role.cache";
 export { RoleCache } from "./role.cache";
 

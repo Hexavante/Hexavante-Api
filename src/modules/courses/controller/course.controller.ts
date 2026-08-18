@@ -54,7 +54,8 @@ export class CourseController {
     const { id } = request.params as { id: string };
     const userId = request.user!.id;
 
-    reply.send({ message: "Not implemented" });
+    const enrollment = await this.courseService.enroll(userId, id);
+    reply.status(201).send({ enrollment });
   }
 
   async getProgress(

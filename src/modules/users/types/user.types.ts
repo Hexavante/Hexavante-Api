@@ -1,10 +1,10 @@
 export interface UserProfile {
   id: string;
-  username: string;
+  username: string | null;
   fullName: string;
   email: string;
   avatarUrl: string | null;
-  birthDate: Date;
+  birthDate: string | null;
   phone: string | null;
   city: string | null;
   state: string | null;
@@ -15,6 +15,18 @@ export interface UserProfile {
   coins: number;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface PublicProfile {
+  id: string;
+  username: string | null;
+  fullName: string;
+  avatarUrl: string | null;
+  bio: string | null;
+  profileVisibility: string;
+  isVerified: boolean;
+  isPremium: boolean;
+  createdAt: Date;
 }
 
 export interface UpdateProfileInput {

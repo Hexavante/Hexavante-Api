@@ -34,7 +34,7 @@ export class CourseService {
       level: c.level,
       estimatedHours: c.estimatedHours,
       totalModules: c.totalModules,
-      totalLessons: 0,
+      totalLessons: c.totalLessons,
       instructorName: c.instructorName,
       createdAt: c.createdAt.toISOString(),
     }));
@@ -123,12 +123,80 @@ export class CourseService {
     await this.courseRepository.delete(id);
   }
 
-  async getProgress(userId: string, courseId: string): Promise<CourseProgress> {
+  async enroll(userId: string, courseId: string) {
     const course = await this.courseRepository.findById(courseId);
     if (!course) {
       throw new NotFoundError("Curso não encontrado");
     }
 
-    throw new BadRequestError("Progress endpoint not implemented - requires enrollment repository");
+    const existing = await this.courseRepository.findEnrollment(userId, courseId);
+    if (existing) {
+      throw new ConflictError("Você já está matriculado neste curso");
+    }
+
+    return this.courseRepository.createEnrollment(userId, courseId);
+  }
+
+  async getProgress(userId: string, courseId: string): Promise<CourseProgress> {
+    const enrollment = await this.courseRepository.findEnrollment(userId, courseId);
+    if (!enrollment) {
+      throw new BadRequestError("Você não está matriculado neste curso");
+    }
+
+    const course = await this.courseRepository.findFullCourseById(courseId);
+    if (!course) {
+      throw new NotFoundError("Curso não encontrado");
+    }
+
+    const allLessonIds = course.modules.flatMap((m) =>
+      m.lessons.map((l) => l.id),
+    );
+
+    const progresses = await this.courseRepository.findLessonProgress(
+      enrollment.id,
+      allLessonIds,
+    );
+
+    const progressMap = new Map(progresses.map((p) => [p.lessonId, p]));
+
+    let totalCompleted = 0;
+
+    const modules: ModuleProgressDto[] = course.modules.map((m) => {
+      const lessons: LessonProgressDto[] = m.lessons.map((l) => {
+        const prog = progressMap.get(l.id);
+        const completed = prog?.completed ?? false;
+        if (completed) totalCompleted++;
+        return {
+          lessonId: l.id,
+          title: l.title,
+          orderNumber: l.orderNumber,
+          completed,
+          completedAt: prog?.completedAt?.toISOString() ?? null,
+        };
+      });
+
+      return {
+        moduleId: m.id,
+        title: m.title,
+        orderNumber: m.orderNumber,
+        totalLessons: m.lessons.length,
+        completedLessons: lessons.filter((l) => l.completed).length,
+        lessons,
+      };
+    });
+
+    const overallProgress =
+      allLessonIds.length > 0
+        ? Math.round((totalCompleted / allLessonIds.length) * 100)
+        : 0;
+
+    return {
+      courseId,
+      enrollmentId: enrollment.id,
+      progress: overallProgress,
+      enrolledAt: enrollment.enrolledAt.toISOString(),
+      completedAt: enrollment.completedAt?.toISOString() ?? null,
+      modules,
+    };
   }
 }

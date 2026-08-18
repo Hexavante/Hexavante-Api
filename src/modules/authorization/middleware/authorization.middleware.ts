@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 import { AuthorizationService } from "../service/authorization.service";
-import { ForbiddenError } from "../../../lib/errors/AppError";
+import { ForbiddenError, UnauthorizedError } from "../../../lib/errors/AppError";
 
 export function permission(name: string) {
   return async (
@@ -9,7 +9,7 @@ export function permission(name: string) {
   ): Promise<void> => {
     const user = request.user;
     if (!user?.id) {
-      throw new ForbiddenError("Usuário não autenticado");
+      throw new UnauthorizedError("Usuário não autenticado");
     }
 
     const service: AuthorizationService = (request as any).authorizationService;

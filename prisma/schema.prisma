@@ -11,14 +11,15 @@ datasource db {
 
 model User {
   id                String    @id @default(cuid())
-  username          String    @unique
+  username          String?   @unique
   fullName          String    @map("full_name")
   email             String    @unique
+  emailVerified     Boolean   @default(false) @map("email_verified")
   passwordHash      String?   @map("password_hash")
   provider          String    @default("local")
   providerId        String?   @map("provider_id")
   avatarUrl         String?   @map("avatar_url") @db.LongText
-  birthDate         DateTime  @map("birth_date") @db.Date
+  birthDate         String?   @map("birth_date")
   phone             String?
   city              String?
   state             String?
@@ -37,6 +38,11 @@ model User {
   lastStudyCourseSlug   String?   @map("last_study_course_slug")
   lastStudyLessonId     String?   @map("last_study_lesson_id")
   lastStudyAt           DateTime? @map("last_study_at")
+
+  role              String    @default("user")
+  banned            Boolean   @default(false)
+  banReason         String?   @map("ban_reason")
+  banExpires        DateTime? @map("ban_expires")
 
   roles              UserRole[]
   xp                 UserXP?
@@ -367,6 +373,7 @@ model CourseInstructor {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([courseId, userId])
+  @@index([userId], map: "course_instructors_user_id_idx")
   @@map("course_instructors")
 }
 
@@ -510,6 +517,7 @@ model LessonProgress {
   enrollment CourseEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
 
   @@unique([userId, lessonId])
+  @@index([enrollmentId], map: "lesson_progress_enrollment_id_idx")
   @@map("lesson_progress")
 }
 
@@ -650,32 +658,41 @@ model ExamQuestionFavorite {
 }
 
 model Account {
-  id                String  @id @default(cuid())
-  userId            String  @map("user_id")
-  type              String
-  provider          String
-  providerAccountId String  @map("provider_account_id")
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
+  id                    String    @id @default(cuid())
+  userId                String    @map("user_id")
+  providerId            String    @map("provider")
+  accountId             String    @map("provider_account_id")
+  password              String?
+  accessToken           String?   @map("access_token") @db.Text
+  refreshToken          String?   @map("refresh_token") @db.Text
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at")
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
+  scope                 String?
+  idToken               String?   @map("id_token") @db.Text
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([provider, providerAccountId])
+  @@unique([providerId, accountId])
+  @@index([userId], map: "accounts_user_id_idx")
   @@map("accounts")
 }
 
 model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique @map("session_token")
-  userId       String   @map("user_id")
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  token     String   @unique @map("session_token")
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  impersonatedBy String? @map("impersonated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "sessions_user_id_idx")
   @@map("sessions")
 }
 
@@ -686,6 +703,17 @@ model VerificationToken {
 
   @@unique([identifier, token])
   @@map("verification_tokens")
+}
+
+model verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String   @db.Text
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("verifications")
 }
 
 model Role {
@@ -785,6 +813,7 @@ model RankingSeasonResult {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, seasonKey])
+  @@index([userId])
   @@index([seasonKey, league])
   @@map("ranking_season_results")
 }
@@ -844,6 +873,7 @@ model UserInventory {
 
   @@unique([userId, storeItemId])
   @@index([userId])
+  @@index([storeItemId], map: "user_inventory_store_item_id_idx")
   @@map("user_inventory")
 }
 

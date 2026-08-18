@@ -1,5 +1,6 @@
 import { prisma } from "../../../config/prisma";
 import type { CourseQueryInput, CreateCourseInput, UpdateCourseInput } from "../schemas/course.schemas";
+import { Prisma } from "@prisma/client";
 
 const courseListSelect = {
   id: true,
@@ -51,6 +52,7 @@ export interface ICourseRepository {
       level: string;
       estimatedHours: number | null;
       totalModules: number;
+      totalLessons: number;
       instructorName: string | null;
       createdAt: Date;
     }>;
@@ -92,6 +94,42 @@ export interface ICourseRepository {
   update(id: string, data: UpdateCourseInput): Promise<{ id: string }>;
   delete(id: string): Promise<void>;
   findBySlug(slug: string): Promise<{ id: string } | null>;
+
+  createEnrollment(userId: string, courseId: string): Promise<{
+    id: string;
+    enrolledAt: Date;
+  }>;
+
+  findEnrollment(userId: string, courseId: string): Promise<{
+    id: string;
+    progress: number;
+    enrolledAt: Date;
+    completedAt: Date | null;
+  } | null>;
+
+  findFullCourseById(id: string): Promise<{
+    id: string;
+    title: string;
+    modules: Array<{
+      id: string;
+      title: string;
+      orderNumber: number;
+      lessons: Array<{
+        id: string;
+        title: string;
+        orderNumber: number;
+      }>;
+    }>;
+  } | null>;
+
+  findLessonProgress(
+    enrollmentId: string,
+    lessonIds: string[],
+  ): Promise<Array<{
+    lessonId: string;
+    completed: boolean;
+    completedAt: Date | null;
+  }>>;
 }
 
 export class CourseRepository implements ICourseRepository {
@@ -120,6 +158,22 @@ export class CourseRepository implements ICourseRepository {
       prisma.course.count({ where }),
     ]);
 
+    const lessonCountMap = new Map<string, number>();
+    if (rows.length > 0) {
+      const courseIds = rows.map((r) => r.id);
+      const raw = await prisma.$queryRaw<Array<{ course_id: string; lesson_count: bigint }>>`
+        SELECT c.id AS course_id, COUNT(l.id) AS lesson_count
+        FROM courses c
+        JOIN modules m ON m.course_id = c.id
+        JOIN lessons l ON l.module_id = m.id
+        WHERE c.id IN (${Prisma.join(courseIds)})
+        GROUP BY c.id
+      `;
+      for (const r of raw) {
+        lessonCountMap.set(r.course_id, Number(r.lesson_count));
+      }
+    }
+
     const courses = rows.map((row) => ({
       id: row.id,
       title: row.title,
@@ -130,6 +184,7 @@ export class CourseRepository implements ICourseRepository {
       level: row.level,
       estimatedHours: row.estimatedHours,
       totalModules: row._count.modules,
+      totalLessons: lessonCountMap.get(row.id) ?? 0,
       instructorName: row.instructors[0]?.user.fullName ?? null,
       createdAt: row.createdAt,
     }));
@@ -256,6 +311,56 @@ export class CourseRepository implements ICourseRepository {
     return prisma.course.findUnique({
       where: { slug },
       select: { id: true },
+    });
+  }
+
+  async createEnrollment(userId: string, courseId: string) {
+    return prisma.courseEnrollment.create({
+      data: { userId, courseId },
+      select: { id: true, enrolledAt: true },
+    });
+  }
+
+  async findEnrollment(userId: string, courseId: string) {
+    return prisma.courseEnrollment.findUnique({
+      where: { userId_courseId: { userId, courseId } },
+      select: { id: true, progress: true, enrolledAt: true, completedAt: true },
+    });
+  }
+
+  async findFullCourseById(id: string) {
+    return prisma.course.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        title: true,
+        modules: {
+          select: {
+            id: true,
+            title: true,
+            orderNumber: true,
+            lessons: {
+              select: { id: true, title: true, orderNumber: true },
+              orderBy: { orderNumber: "asc" },
+            },
+          },
+          orderBy: { orderNumber: "asc" },
+        },
+      },
+    });
+  }
+
+  async findLessonProgress(
+    enrollmentId: string,
+    lessonIds: string[],
+  ) {
+    if (lessonIds.length === 0) return [];
+    return prisma.lessonProgress.findMany({
+      where: {
+        enrollmentId,
+        lessonId: { in: lessonIds },
+      },
+      select: { lessonId: true, completed: true, completedAt: true },
     });
   }
 }

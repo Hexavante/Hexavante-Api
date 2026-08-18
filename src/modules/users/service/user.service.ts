@@ -1,13 +1,21 @@
 import { ConflictError, NotFoundError } from "../../../lib/errors/AppError";
 import type { IUserRepository } from "../repository/user.repository";
 import type { UpdateProfileInput } from "../schemas/user.schemas";
-import type { UserProfile } from "../types/user.types";
+import type { UserProfile, PublicProfile } from "../types/user.types";
 
 export class UserService {
   constructor(private readonly userRepository: IUserRepository) {}
 
   async getProfile(userId: string): Promise<UserProfile> {
     const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundError("Usuário não encontrado");
+    }
+    return user;
+  }
+
+  async getPublicProfile(username: string): Promise<PublicProfile> {
+    const user = await this.userRepository.findPublicProfile(username);
     if (!user) {
       throw new NotFoundError("Usuário não encontrado");
     }

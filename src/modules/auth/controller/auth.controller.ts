@@ -60,6 +60,13 @@ export class AuthController {
       throw new UnauthorizedError('Usuário não encontrado');
     }
 
+    const impersonatorId = (session.session as { impersonatedBy?: string } | undefined)?.impersonatedBy;
+
+    let impersonator: { id: string; username: string | null } | null = null;
+    if (impersonatorId) {
+      impersonator = await this.authService.getUserBasicInfo(impersonatorId);
+    }
+
     reply.send({
       user: {
         id: user.id,
@@ -67,6 +74,12 @@ export class AuthController {
         email: user.email,
         username: user.username,
         roles: user.roles.map((r) => r.role.name),
+      },
+      session: {
+        impersonatedBy: impersonatorId ?? null,
+        impersonator: impersonator
+          ? { id: impersonator.id, username: impersonator.username }
+          : null,
       },
     });
   }

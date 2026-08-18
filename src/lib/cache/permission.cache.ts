@@ -28,9 +28,13 @@ const PREFIX = "permissions";
 export class PermissionCache implements IPermissionCache {
   async get(userId: string): Promise<string[] | null> {
     const redis = getRedisClient();
-    const data = await redis.get(`${PREFIX}:${userId}`);
-    if (!data) return null;
-    return JSON.parse(data) as string[];
+    try {
+      const data = await redis.get(`${PREFIX}:${userId}`);
+      if (!data) return null;
+      return JSON.parse(data) as string[];
+    } catch {
+      return null;
+    }
   }
 
   async set(

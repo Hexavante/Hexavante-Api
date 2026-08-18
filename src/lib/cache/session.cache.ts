@@ -12,7 +12,7 @@ import { getRedisClient } from "../../config/redis";
  */
 export interface ISessionCache {
   get(sessionId: string): Promise<string | null>;
-  set(sessionId: string, data: string, ttlSeconds?: number): Promise<void>;
+  set(sessionId: string, data: string, ttlSeconds?: number, userId?: string): Promise<void>;
   delete(sessionId: string): Promise<void>;
   deleteAllByUserId(userId: string): Promise<void>;
 }
@@ -33,9 +33,14 @@ export class SessionCache implements ISessionCache {
     sessionId: string,
     data: string,
     ttlSeconds = DEFAULT_TTL,
+    userId?: string,
   ): Promise<void> {
     const redis = getRedisClient();
-    await redis.setex(`${PREFIX}:${sessionId}`, ttlSeconds, data);
+    const key = `${PREFIX}:${sessionId}`;
+    await redis.setex(key, ttlSeconds, data);
+    if (userId) {
+      await redis.sadd(`${USER_INDEX_PREFIX}:${userId}`, sessionId);
+    }
   }
 
   async delete(sessionId: string): Promise<void> {

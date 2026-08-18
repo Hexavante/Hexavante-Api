@@ -1,26 +1,26 @@
 import { FastifyRequest, FastifyReply } from "fastify";
+import { ForbiddenError, UnauthorizedError } from "../lib/errors/AppError";
+import { prisma } from "../config/prisma";
 
-/**
- * Middleware de autorização baseada em roles (RBAC).
- *
- * Verifica se o usuário autenticado possui uma das roles permitidas.
- * Deve ser usado após o middleware `authenticate`.
- *
- * Uso:
- *   fastify.get('/rota', { preHandler: [authenticate, authorize(['admin', 'teacher'])] }, handler)
- *
- * TODO: Implementar checagem de roles após configuração do RBAC no Better Auth.
- */
 export function authorize(allowedRoles: string[]) {
   return async function (
     request: FastifyRequest,
-    reply: FastifyReply,
+    _reply: FastifyReply,
   ): Promise<void> {
-    // TODO: Substituir por validação real de roles via Better Auth
-    // Exemplo futuro:
-    //   const user = request.user;
-    //   if (!user) return reply.status(401).send({ success: false, error: 'Unauthorized' });
-    //   const hasRole = allowedRoles.some(role => user.roles.includes(role));
-    //   if (!hasRole) return reply.status(403).send({ success: false, error: 'Forbidden' });
+    if (!request.user) {
+      throw new UnauthorizedError("Usuário não autenticado");
+    }
+
+    const userRoles = await prisma.userRole.findMany({
+      where: { userId: request.user.id },
+      select: { role: { select: { name: true } } },
+    });
+
+    const roleNames = userRoles.map((ur) => ur.role.name);
+    const hasRole = allowedRoles.some((role) => roleNames.includes(role));
+
+    if (!hasRole) {
+      throw new ForbiddenError("Você não tem permissão para acessar este recurso");
+    }
   };
 }

@@ -9,6 +9,15 @@ import { userRoutes } from "./modules/users/routes/user.routes";
 import { authorizationRoutes } from "./modules/authorization/routes/authorization.routes";
 import { courseRoutes } from "./modules/courses/routes/course.routes";
 import { gamificationRoutes } from "./modules/gamification/routes/gamification.routes";
+import { shopRoutes } from "./modules/shop/routes/shop.routes";
+import { communityRoutes } from "./modules/community/routes/community.routes";
+import { examRoutes } from "./modules/exams/routes/exam.routes";
+import { certificateRoutes } from "./modules/certificates/routes/certificate.routes";
+import { notificationRoutes } from "./modules/notifications/routes/notification.routes";
+import { conversationRoutes } from "./modules/conversations/routes/conversation.routes";
+import { instructorRoutes } from "./modules/instructor/routes/instructor.routes";
+import { liveRoomRoutes } from "./modules/live-rooms/routes/live-room.routes";
+import { moderationRoutes } from "./modules/moderation/routes/moderation.routes";
 import { prisma } from "./config/prisma";
 import { corsPlugin } from "./plugins/cors";
 import { helmetPlugin } from "./plugins/helmet";
@@ -129,6 +138,15 @@ await fastify.register(userRoutes);
 await fastify.register(authorizationRoutes);
 await fastify.register(courseRoutes);
 await fastify.register(gamificationRoutes);
+await fastify.register(shopRoutes);
+await fastify.register(communityRoutes);
+await fastify.register(examRoutes);
+await fastify.register(certificateRoutes);
+await fastify.register(notificationRoutes);
+await fastify.register(conversationRoutes);
+await fastify.register(instructorRoutes);
+await fastify.register(liveRoomRoutes);
+await fastify.register(moderationRoutes);
 
 fastify.get("/", async () => {
   return {

@@ -1,10 +1,11 @@
 import { prisma } from "../../../config/prisma";
 import type { UpdateProfileInput } from "../schemas/user.schemas";
-import type { UserProfile } from "../types/user.types";
+import type { UserProfile, PublicProfile } from "../types/user.types";
 
 export interface IUserRepository {
   findById(id: string): Promise<UserProfile | null>;
   findByUsername(username: string): Promise<{ id: string } | null>;
+  findPublicProfile(username: string): Promise<PublicProfile | null>;
   update(id: string, data: UpdateProfileInput): Promise<UserProfile>;
   softDelete(id: string): Promise<void>;
 }
@@ -46,13 +47,50 @@ export class UserRepository implements IUserRepository {
     return user;
   }
 
+  async findPublicProfile(username: string): Promise<PublicProfile | null> {
+    const user = await prisma.user.findUnique({
+      where: { username },
+      select: {
+        id: true,
+        username: true,
+        fullName: true,
+        avatarUrl: true,
+        bio: true,
+        profileVisibility: true,
+        isVerified: true,
+        isPremium: true,
+        createdAt: true,
+      },
+    });
+
+    if (!user) return null;
+
+    return {
+      id: user.id,
+      username: user.username,
+      fullName: user.fullName,
+      avatarUrl: user.avatarUrl,
+      bio: user.bio,
+      profileVisibility: user.profileVisibility,
+      isVerified: user.isVerified,
+      isPremium: user.isPremium,
+      createdAt: user.createdAt,
+    };
+  }
+
   async update(id: string, data: UpdateProfileInput): Promise<UserProfile> {
+    const birthDateStr = data.birthDate
+      ? data.birthDate instanceof Date
+        ? data.birthDate.toISOString().split("T")[0]
+        : String(data.birthDate)
+      : undefined;
+
     const user = await prisma.user.update({
       where: { id },
       data: {
         ...(data.fullName && { fullName: data.fullName }),
         ...(data.username && { username: data.username }),
-        ...(data.birthDate && { birthDate: data.birthDate }),
+        ...(birthDateStr && { birthDate: birthDateStr }),
       },
     });
 

@@ -118,8 +118,10 @@ export class AuthorizationRepository implements IAuthorizationRepository {
     action: string;
     description?: string;
   }): Promise<Permission> {
-    return prisma.permission.create({
-      data,
+    return prisma.permission.upsert({
+      where: { name: data.name },
+      update: { resource: data.resource, action: data.action, description: data.description },
+      create: data,
       select: permissionSelect,
     });
   }

@@ -11,9 +11,14 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "seed": "tsx prisma/seed.ts",
+    "seed:full": "tsx prisma/seed-full.ts",
     "db:studio": "prisma studio",
-    "lint": "eslint src --ext .ts",
-    "lint:fix": "eslint src --ext .ts --fix"
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [],
   "author": "",
@@ -21,7 +26,7 @@
   "type": "module",
   "dependencies": {
     "@fastify/compress": "^8.0.0",
-    "@fastify/cors": "^10.0.1",
+    "@fastify/cors": "11.2.0",
     "@fastify/helmet": "^12.0.1",
     "@fastify/rate-limit": "^10.2.1",
     "@fastify/swagger": "^9.7.0",
@@ -40,7 +45,14 @@
   },
   "devDependencies": {
     "@types/node": "^25.9.2",
+    "@typescript-eslint/eslint-plugin": "^8.62.0",
+    "@typescript-eslint/parser": "^8.62.0",
+    "eslint": "^10.6.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.6",
+    "prettier": "^3.9.1",
     "tsx": "^4.22.4",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
   }
 }

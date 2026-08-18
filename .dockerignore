@@ -1,0 +1,59 @@
+# ============================================
+# Hexavante API — .dockerignore
+# ============================================
+
+# --- Dependencies ---
+node_modules/
+.npm
+.yarn
+.pnp
+.pnp.js
+
+# --- Build ---
+dist/
+build/
+out/
+
+# --- Git ---
+.git/
+.gitignore
+.github/
+
+# --- Environment ---
+.env
+.env.local
+.env.*.local
+.env.example
+
+# --- IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# --- Tests ---
+tests/
+coverage/
+.nyc_output/
+*.test.ts
+*.spec.ts
+*.test.js
+*.spec.js
+
+# --- Documentation ---
+*.md
+docs/
+LICENSE
+
+# --- Scripts ---
+scripts/
+
+# --- Misc ---
+.dockerignore
+Dockerfile
+docker-compose*.yml
+.prettierrc
+eslint.config.js
+vitest.config.ts
+tsconfig.json
