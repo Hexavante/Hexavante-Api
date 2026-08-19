@@ -44,12 +44,12 @@ export const auth = betterAuth({
       username: {
         type: 'string',
         required: false,
-        input: false,
+        input: true,
       },
       birthDate: {
         type: 'string',
         required: false,
-        input: false,
+        input: true,
       },
     },
   },
@@ -57,6 +57,24 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: false,
     autoSignIn: true,
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          const created = user as { id: string };
+          const userRole = await prisma.role.findUnique({ where: { name: 'USER' } });
+          await prisma.user.update({
+            where: { id: created.id },
+            data: {
+              xp: { create: {} },
+              wallet: { create: {} },
+              ...(userRole && { roles: { create: { roleId: userRole.id } } }),
+            },
+          });
+        },
+      },
+    },
   },
   session: {
     expiresIn: 60 * 60 * 24 * 7,
