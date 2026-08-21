@@ -54,10 +54,7 @@ export class AuthService {
     });
 
     if (existing) {
-      if (existing.email === data.email) {
-        throw new ConflictError('Este e-mail já está em uso.');
-      }
-      throw new ConflictError('Este nome de usuário já está em uso.');
+      throw new ConflictError('Este e-mail ou nome de usuário já está em uso.');
     }
 
     const passwordHash = await hashPassword(data.password);

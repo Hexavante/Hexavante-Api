@@ -38,15 +38,17 @@ export class CourseController {
     await validateBody(updateCourseSchema)(request, reply);
     const { id } = request.params as { id: string };
     const body = request.body as any;
+    const userId = request.user!.id;
 
-    const course = await this.courseService.update(id, body);
+    const course = await this.courseService.update(id, body, userId);
     reply.send({ course });
   }
 
   async delete(request: FastifyRequest, reply: FastifyReply): Promise<void> {
     const { id } = request.params as { id: string };
+    const userId = request.user!.id;
 
-    await this.courseService.delete(id);
+    await this.courseService.delete(id, userId);
     reply.send({ success: true });
   }
 

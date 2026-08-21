@@ -3,6 +3,7 @@ import { AuthorizationController } from "../controller/authorization.controller"
 import { AuthorizationService } from "../service/authorization.service";
 import { AuthorizationRepository } from "../repository/authorization.repository";
 import { authenticate } from "../../../middlewares/authenticate";
+import { authorize } from "../../../middlewares/authorize";
 import { asyncHandler } from "../../../lib/errors/errorHandler";
 
 export async function authorizationRoutes(fastify: FastifyInstance) {
@@ -45,13 +46,13 @@ export async function authorizationRoutes(fastify: FastifyInstance) {
 
   fastify.post(
     "/api/v1/authorization/permissions",
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate, authorize(["ADMIN"])] },
     asyncHandler(controller.createPermission.bind(controller)),
   );
 
   fastify.post(
     "/api/v1/authorization/roles",
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate, authorize(["ADMIN"])] },
     asyncHandler(controller.createRole.bind(controller)),
   );
 }

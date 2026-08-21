@@ -57,13 +57,15 @@ await fastify.register(swagger, {
   },
 });
 
-await fastify.register(swaggerUi, {
-  routePrefix: "/docs",
-  uiConfig: {
-    docExpansion: "list",
-    deepLinking: false,
-  },
-});
+if (process.env.NODE_ENV !== 'production') {
+  await fastify.register(swaggerUi, {
+    routePrefix: "/docs",
+    uiConfig: {
+      docExpansion: "list",
+      deepLinking: false,
+    },
+  });
+}
 
 fastify.addSchema({
   $id: "HealthCheck",

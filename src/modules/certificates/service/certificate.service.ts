@@ -78,9 +78,11 @@ export class CertificateService {
 
   private generateCertificateCode(): string {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    const { randomBytes } = require("crypto");
+    const bytes = randomBytes(8);
     let code = "HXV-";
     for (let i = 0; i < 8; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
+      code += chars.charAt(bytes[i] % chars.length);
     }
     return code;
   }

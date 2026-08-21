@@ -656,8 +656,14 @@ async function seedAchievements(users: any[]) {
 async function main() {
   console.log("\n🌱 Populando banco de dados completo...\n");
 
+  // Credentials from env vars (defaults for development only)
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD || "admin123";
+  const teacherPassword = process.env.SEED_TEACHER_PASSWORD || "teacher123";
+  const modPassword = process.env.SEED_MOD_PASSWORD || "mod123";
+  const userPassword = process.env.SEED_USER_PASSWORD || "user123";
+
   // 1. Users
-  const admin = await createUser("admin@hexavante.com", "admin123", {
+  const admin = await createUser("admin@hexavante.com", adminPassword, {
     username: "admin",
     fullName: "Admin Hexavante",
     birthDate: new Date("1990-01-01"),
@@ -673,7 +679,7 @@ async function main() {
     state: "SP",
   });
 
-  const teacher = await createUser("teacher@hexavante.com", "teacher123", {
+  const teacher = await createUser("teacher@hexavante.com", teacherPassword, {
     username: "professor",
     fullName: "Carlos Silva",
     birthDate: new Date("1985-05-15"),
@@ -688,7 +694,7 @@ async function main() {
     state: "RJ",
   });
 
-  const moderator = await createUser("moderator@hexavante.com", "mod123", {
+  const moderator = await createUser("moderator@hexavante.com", modPassword, {
     username: "moderador",
     fullName: "Ana Beatriz",
     birthDate: new Date("1995-03-20"),
@@ -702,7 +708,7 @@ async function main() {
     state: "MG",
   });
 
-  const user1 = await createUser("user@hexavante.com", "user123", {
+  const user1 = await createUser("user@hexavante.com", userPassword, {
     username: "aluno1",
     fullName: "João Aluno",
     birthDate: new Date("2002-07-10"),
@@ -716,7 +722,7 @@ async function main() {
     state: "PR",
   });
 
-  const user2 = await createUser("maria@hexavante.com", "maria123", {
+  const user2 = await createUser("maria@hexavante.com", userPassword, {
     username: "maria_estudante",
     fullName: "Maria Oliveira",
     birthDate: new Date("2003-11-22"),
@@ -731,7 +737,7 @@ async function main() {
     state: "RS",
   });
 
-  const user3 = await createUser("pedro@hexavante.com", "pedro123", {
+  const user3 = await createUser("pedro@hexavante.com", userPassword, {
     username: "pedro_code",
     fullName: "Pedro Santos",
     birthDate: new Date("2001-09-05"),
@@ -770,12 +776,13 @@ async function main() {
   await seedAchievements(users);
 
   console.log("\n✅ Banco populado com sucesso!\n");
-  console.log("   Admin:    admin@hexavante.com / admin123");
-  console.log("   Teacher:  teacher@hexavante.com / teacher123");
-  console.log("   Moderator: moderator@hexavante.com / mod123");
-  console.log("   Aluno 1:  user@hexavante.com / user123");
-  console.log("   Aluno 2:  maria@hexavante.com / maria123");
-  console.log("   Aluno 3:  pedro@hexavante.com / pedro123");
+  console.log("   Admin:    admin@hexavante.com");
+  console.log("   Teacher:  teacher@hexavante.com");
+  console.log("   Moderator: moderator@hexavante.com");
+  console.log("   Aluno 1:  user@hexavante.com");
+  console.log("   Aluno 2:  maria@hexavante.com");
+  console.log("   Aluno 3:  pedro@hexavante.com");
+  console.log("   (Senhas definidas via variáveis de ambiente SEED_*_PASSWORD)");
   console.log("");
 }
 

@@ -17,6 +17,7 @@ import {
   ConflictError,
   BadRequestError,
 } from "../../../lib/errors/AppError";
+import { prisma } from "../../../config/prisma";
 
 export class CourseService {
   constructor(private readonly courseRepository: ICourseRepository) {}
@@ -98,10 +99,19 @@ export class CourseService {
     return this.courseRepository.create(data, instructorId);
   }
 
-  async update(id: string, data: UpdateCourseInput) {
+  async update(id: string, data: UpdateCourseInput, userId?: string) {
     const course = await this.courseRepository.findById(id);
     if (!course) {
       throw new NotFoundError("Curso não encontrado");
+    }
+
+    if (userId) {
+      const isInstructor = await prisma.courseInstructor.findUnique({
+        where: { courseId_userId: { courseId: id, userId } },
+      });
+      if (!isInstructor) {
+        throw new NotFoundError("Curso não encontrado");
+      }
     }
 
     if (data.slug) {
@@ -114,10 +124,19 @@ export class CourseService {
     return this.courseRepository.update(id, data);
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, userId?: string): Promise<void> {
     const course = await this.courseRepository.findById(id);
     if (!course) {
       throw new NotFoundError("Curso não encontrado");
+    }
+
+    if (userId) {
+      const isInstructor = await prisma.courseInstructor.findUnique({
+        where: { courseId_userId: { courseId: id, userId } },
+      });
+      if (!isInstructor) {
+        throw new NotFoundError("Curso não encontrado");
+      }
     }
 
     await this.courseRepository.delete(id);

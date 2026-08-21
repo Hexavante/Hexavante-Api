@@ -8,8 +8,22 @@ export async function authRoutes(fastify: FastifyInstance) {
   const authService = new AuthService();
   const authController = new AuthController(authService);
 
-  fastify.post('/api/v1/auth/login', asyncHandler(authController.login.bind(authController)));
-  fastify.post('/api/v1/auth/register', asyncHandler(authController.register.bind(authController)));
+  fastify.post('/api/v1/auth/login', {
+    config: {
+      rateLimit: {
+        max: 10,
+        timeWindow: '1 minute',
+      },
+    },
+  }, asyncHandler(authController.login.bind(authController)));
+  fastify.post('/api/v1/auth/register', {
+    config: {
+      rateLimit: {
+        max: 5,
+        timeWindow: '1 minute',
+      },
+    },
+  }, asyncHandler(authController.register.bind(authController)));
   fastify.post('/api/v1/auth/logout', asyncHandler(authController.logout.bind(authController)));
   fastify.get('/api/v1/auth/session', asyncHandler(authController.session.bind(authController)));
 
@@ -33,9 +47,26 @@ export async function authRoutes(fastify: FastifyInstance) {
 
     // Resolve relative callbackURLs to the web app's origin
     const webOrigin = process.env.CORS_ORIGIN?.split(',')[0]?.trim() || 'https://hexavante.com.br';
-    const callbackURL = rawCallbackURL
-      ? (rawCallbackURL.startsWith('http') ? rawCallbackURL : `${webOrigin}${rawCallbackURL.startsWith('/') ? '' : '/'}${rawCallbackURL}`)
-      : `${webOrigin}/`;
+    const ALLOWED_REDIRECT_HOSTS = [
+      'hexavante.com.br',
+      'app.hexavante.com.br',
+      'www.hexavante.com.br',
+      'localhost',
+      '127.0.0.1',
+    ];
+
+    let callbackURL: string;
+    if (!rawCallbackURL) {
+      callbackURL = `${webOrigin}/`;
+    } else if (rawCallbackURL.startsWith('http')) {
+      const parsed = new URL(rawCallbackURL);
+      if (!ALLOWED_REDIRECT_HOSTS.includes(parsed.hostname)) {
+        return reply.status(400).send({ success: false, error: 'Domínio de redirecionamento não permitido' });
+      }
+      callbackURL = rawCallbackURL;
+    } else {
+      callbackURL = `${webOrigin}${rawCallbackURL.startsWith('/') ? '' : '/'}${rawCallbackURL}`;
+    }
 
     if (callbackURL) {
       socialUrl.searchParams.set('callbackURL', callbackURL);
