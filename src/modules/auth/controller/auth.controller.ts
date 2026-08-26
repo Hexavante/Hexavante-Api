@@ -3,6 +3,8 @@ import { AuthService } from '../service/auth.service';
 import { UnauthorizedError } from '../../../lib/errors/AppError';
 import { loginSchema, registerSchema } from '../schemas/auth.schemas';
 import { validateBody } from '../../../lib/validation/validate';
+import { auth } from '../../../config/auth';
+import { fromNodeHeaders } from 'better-auth/node';
 
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -15,6 +17,50 @@ export class AuthController {
     if (!user) {
       throw new UnauthorizedError('Credenciais inválidas');
     }
+
+    reply.send({
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        username: user.username,
+        roles: user.roles,
+      },
+    });
+  }
+
+  async loginWithSession(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+    await validateBody(loginSchema)(request, reply);
+    const body = request.body as { email: string; password: string; rememberMe?: boolean };
+
+    const user = await this.authService.signIn(body.email, body.password);
+    if (!user) {
+      throw new UnauthorizedError('Credenciais inválidas');
+    }
+
+    const authContext = await auth.$context;
+    const session = await authContext.internalAdapter.createSession(user.id, body.rememberMe === false);
+    if (!session) {
+      throw new UnauthorizedError('Falha ao criar sessão');
+    }
+
+    const headers = new Headers();
+    headers.set('Cookie', request.headers.cookie || '');
+    const cookieHeaders = await auth.api.signInEmail({
+      body: { email: body.email, password: body.password, rememberMe: body.rememberMe !== false },
+      headers: fromNodeHeaders(headers as any),
+      asResponse: true,
+    });
+
+    if (!cookieHeaders.ok) {
+      throw new UnauthorizedError('Falha ao criar sessão');
+    }
+
+    cookieHeaders.headers.forEach((value, key) => {
+      if (key !== 'content-type' && key !== 'content-length') {
+        reply.header(key, value);
+      }
+    });
 
     reply.send({
       user: {

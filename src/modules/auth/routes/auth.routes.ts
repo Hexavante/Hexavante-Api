@@ -16,6 +16,14 @@ export async function authRoutes(fastify: FastifyInstance) {
       },
     },
   }, asyncHandler(authController.login.bind(authController)));
+  fastify.post('/api/v1/auth/login-with-session', {
+    config: {
+      rateLimit: {
+        max: 10,
+        timeWindow: '1 minute',
+      },
+    },
+  }, asyncHandler(authController.loginWithSession.bind(authController)));
   fastify.post('/api/v1/auth/register', {
     config: {
       rateLimit: {
