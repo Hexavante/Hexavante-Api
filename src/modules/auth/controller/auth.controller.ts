@@ -57,13 +57,15 @@ export class AuthController {
       return `${value}.${hmac}`;
     };
 
+    const signedToken = signCookie(session.token);
+
     const sessionCookieOpts = {
       ...cookieAttributes,
       sameSite: (cookieAttributes.sameSite?.toLowerCase() as 'lax' | 'strict' | 'none') ?? 'lax',
       maxAge,
     } as const;
 
-    reply.setCookie(cookieName, signCookie(session.token), sessionCookieOpts);
+    reply.setCookie(cookieName, signedToken, sessionCookieOpts);
 
     if (body.rememberMe === false) {
       const dontRememberAttrs = authContext.authCookies.dontRememberToken.attributes;
@@ -80,6 +82,10 @@ export class AuthController {
         email: user.email,
         username: user.username,
         roles: user.roles,
+      },
+      session: {
+        token: signedToken,
+        maxAge: maxAge ?? cookieAttributes.maxAge,
       },
     });
   }
