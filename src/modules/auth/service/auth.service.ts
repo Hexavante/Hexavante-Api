@@ -4,6 +4,7 @@ import { RegisterInput } from '../schemas/auth.schemas';
 import { BadRequestError, ConflictError } from '../../../lib/errors/AppError';
 import { hashPassword, verifyPassword } from '@better-auth/utils/password';
 import { fromNodeHeaders } from 'better-auth/node';
+import bcrypt from 'bcryptjs';
 
 const MIN_AGE = 13;
 
@@ -21,6 +22,10 @@ function assertMinimumAge(birthDate: Date): void {
   }
 }
 
+function isBcryptHash(hash: string): boolean {
+  return hash.startsWith('$2a$') || hash.startsWith('$2b$') || hash.startsWith('$2y$') || hash.includes(':');
+}
+
 export class AuthService {
   async signIn(email: string, password: string) {
     const user = await prisma.user.findUnique({
@@ -32,7 +37,12 @@ export class AuthService {
 
     if (!user || !user.passwordHash) return null;
 
-    const valid = await verifyPassword(user.passwordHash, password);
+    let valid = false;
+    if (isBcryptHash(user.passwordHash)) {
+      valid = await bcrypt.compare(password, user.passwordHash);
+    } else {
+      valid = await verifyPassword(user.passwordHash, password);
+    }
     if (!valid) return null;
 
     return {
