@@ -48,20 +48,27 @@ export class AuthController {
     const cookieAttributes = authContext.authCookies.sessionToken.attributes;
     const maxAge = body.rememberMe === false ? undefined : cookieAttributes.maxAge;
 
-    // Sign the cookie with the auth secret (same as Better Auth's setSignedCookie)
-    reply.setCookie(cookieName, session.token, {
+    // Manually sign cookie with Better Auth's base64url HMAC (cookie plugin uses base64)
+    const crypto = require('crypto');
+    const secret = authContext.secret;
+    const signCookie = (value: string) => {
+      const hmac = crypto.createHmac('sha256', secret).update(value).digest('base64url');
+      return `${value}.${hmac}`;
+    };
+
+    const sessionCookieOpts = {
       ...cookieAttributes,
       sameSite: (cookieAttributes.sameSite?.toLowerCase() as 'lax' | 'strict' | 'none') ?? 'lax',
       maxAge,
-      signed: true,
-    });
+    } as const;
+
+    reply.setCookie(cookieName, signCookie(session.token), sessionCookieOpts);
 
     if (body.rememberMe === false) {
       const dontRememberAttrs = authContext.authCookies.dontRememberToken.attributes;
-      reply.setCookie(authContext.authCookies.dontRememberToken.name, 'true', {
+      reply.setCookie(authContext.authCookies.dontRememberToken.name, signCookie('true'), {
         ...dontRememberAttrs,
         sameSite: (dontRememberAttrs.sameSite?.toLowerCase() as 'lax' | 'strict' | 'none') ?? 'lax',
-        signed: true,
       } as const);
     }
 
