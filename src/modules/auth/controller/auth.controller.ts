@@ -5,6 +5,7 @@ import { loginSchema, registerSchema } from '../schemas/auth.schemas';
 import { validateBody } from '../../../lib/validation/validate';
 import { auth } from '../../../config/auth';
 import { fromNodeHeaders } from 'better-auth/node';
+import { createHmac } from 'crypto';
 
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -49,10 +50,9 @@ export class AuthController {
     const maxAge = body.rememberMe === false ? undefined : cookieAttributes.maxAge;
 
     // Manually sign cookie with Better Auth's base64url HMAC (cookie plugin uses base64)
-    const crypto = require('crypto');
     const secret = authContext.secret;
     const signCookie = (value: string) => {
-      const hmac = crypto.createHmac('sha256', secret).update(value).digest('base64url');
+      const hmac = createHmac('sha256', secret).update(value).digest('base64url');
       return `${value}.${hmac}`;
     };
 
