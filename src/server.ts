@@ -12,7 +12,6 @@ import { authorizationRoutes } from "./modules/authorization/routes/authorizatio
 import { courseRoutes } from "./modules/courses/routes/course.routes";
 import { gamificationRoutes } from "./modules/gamification/routes/gamification.routes";
 import { shopRoutes } from "./modules/shop/routes/shop.routes";
-import { communityRoutes } from "./modules/community/routes/community.routes";
 import { examRoutes } from "./modules/exams/routes/exam.routes";
 import { certificateRoutes } from "./modules/certificates/routes/certificate.routes";
 import { notificationRoutes } from "./modules/notifications/routes/notification.routes";
@@ -146,7 +145,6 @@ await fastify.register(authorizationRoutes);
 await fastify.register(courseRoutes);
 await fastify.register(gamificationRoutes);
 await fastify.register(shopRoutes);
-await fastify.register(communityRoutes);
 await fastify.register(examRoutes);
 await fastify.register(certificateRoutes);
 await fastify.register(notificationRoutes);

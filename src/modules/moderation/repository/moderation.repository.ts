@@ -148,7 +148,7 @@ export class ModerationRepository {
       }),
       prisma.course.count({ where: { status: "PENDING_REVIEW" as never } }),
       prisma.instructorApplication.count({ where: { status: "PENDING" as never } }),
-      prisma.communityReport.count({ where: { status: "PENDING" as never } }),
+      Promise.resolve(0),
     ]);
 
     const activityData = await this.getActivityLast7Days();
