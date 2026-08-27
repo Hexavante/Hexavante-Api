@@ -5,6 +5,7 @@ import cookie from "@fastify/cookie";
 import { logger } from "./config/logger";
 import { closeRedisClient } from "./config/redis";
 import { authRoutes } from "./modules/auth/routes/auth.routes";
+import { oauthRoutes } from "./modules/auth/routes/oauth.routes";
 import { healthRoutes } from "./modules/health/health.routes";
 import { userRoutes } from "./modules/users/routes/user.routes";
 import { authorizationRoutes } from "./modules/authorization/routes/authorization.routes";
@@ -139,6 +140,7 @@ fastify.addSchema({
 
 await fastify.register(healthRoutes);
 await fastify.register(authRoutes);
+await fastify.register(oauthRoutes);
 await fastify.register(userRoutes);
 await fastify.register(authorizationRoutes);
 await fastify.register(courseRoutes);
