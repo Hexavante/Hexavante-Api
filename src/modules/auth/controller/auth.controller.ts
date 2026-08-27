@@ -38,33 +38,30 @@ export class AuthController {
       throw new UnauthorizedError('Credenciais inválidas');
     }
 
-    const req = new Request(`${auth.options.baseURL}/api/auth/sign-in/email`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: request.headers.cookie || '',
-        Origin: request.headers.origin || '',
-      },
-      body: JSON.stringify({
-        email: body.email,
-        password: body.password,
-        rememberMe: body.rememberMe !== false,
-      }),
-    });
+    const authContext = await auth.$context;
+    const session = await authContext.internalAdapter.createSession(user.id, body.rememberMe === false);
+    if (!session) {
+      throw new UnauthorizedError('Falha ao criar sessão');
+    }
 
-    const response = await auth.handler(req);
+    const cookieName = authContext.authCookies.sessionToken.name;
+    const cookieAttributes = authContext.authCookies.sessionToken.attributes;
+    const maxAge = body.rememberMe === false ? undefined : cookieAttributes.maxAge;
 
-    response.headers.forEach((value, key) => {
-      if (key !== 'content-type' && key !== 'content-length') {
-        reply.header(key, value);
-      }
-    });
+    const sessionCookieOpts = {
+      ...cookieAttributes,
+      sameSite: (cookieAttributes.sameSite?.toLowerCase() as 'lax' | 'strict' | 'none') ?? 'lax',
+      maxAge,
+    } as const;
 
-    const responseBody = response.body ? await response.text() : 'null';
-    const data = JSON.parse(responseBody);
+    reply.setCookie(cookieName, session.token, sessionCookieOpts);
 
-    if (!response.ok) {
-      throw new UnauthorizedError(data.message || 'Credenciais inválidas');
+    if (body.rememberMe === false) {
+      const dontRememberAttrs = authContext.authCookies.dontRememberToken.attributes;
+      reply.setCookie(authContext.authCookies.dontRememberToken.name, 'true', {
+        ...dontRememberAttrs,
+        sameSite: (dontRememberAttrs.sameSite?.toLowerCase() as 'lax' | 'strict' | 'none') ?? 'lax',
+      } as const);
     }
 
     reply.send({

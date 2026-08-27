@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
+import cookie from "@fastify/cookie";
 import { logger } from "./config/logger";
 import { closeRedisClient } from "./config/redis";
 import { authRoutes } from "./modules/auth/routes/auth.routes";
@@ -38,6 +39,11 @@ await fastify.register(corsPlugin);
 await fastify.register(helmetPlugin);
 await fastify.register(rateLimitPlugin);
 await fastify.register(compressPlugin);
+await fastify.register(cookie, {
+  secret: process.env.AUTH_SECRET || 'default-secret-change-in-production',
+  hook: 'onRequest',
+  parseOptions: {},
+});
 
 await fastify.register(authPlugin);
 
