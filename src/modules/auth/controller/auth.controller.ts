@@ -48,19 +48,20 @@ export class AuthController {
     const cookieAttributes = authContext.authCookies.sessionToken.attributes;
     const maxAge = body.rememberMe === false ? undefined : cookieAttributes.maxAge;
 
-    const sessionCookieOpts = {
+    // Sign the cookie with the auth secret (same as Better Auth's setSignedCookie)
+    reply.setCookie(cookieName, session.token, {
       ...cookieAttributes,
       sameSite: (cookieAttributes.sameSite?.toLowerCase() as 'lax' | 'strict' | 'none') ?? 'lax',
       maxAge,
-    } as const;
-
-    reply.setCookie(cookieName, session.token, sessionCookieOpts);
+      signed: true,
+    });
 
     if (body.rememberMe === false) {
       const dontRememberAttrs = authContext.authCookies.dontRememberToken.attributes;
       reply.setCookie(authContext.authCookies.dontRememberToken.name, 'true', {
         ...dontRememberAttrs,
         sameSite: (dontRememberAttrs.sameSite?.toLowerCase() as 'lax' | 'strict' | 'none') ?? 'lax',
+        signed: true,
       } as const);
     }
 
