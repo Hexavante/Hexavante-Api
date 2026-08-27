@@ -24,7 +24,6 @@ import { corsPlugin } from "./plugins/cors";
 import { helmetPlugin } from "./plugins/helmet";
 import { rateLimitPlugin } from "./plugins/rate-limit";
 import { compressPlugin } from "./plugins/compress";
-import { authPlugin } from "./plugins/auth";
 
 const fastify = Fastify({
   logger: false,
@@ -44,8 +43,6 @@ await fastify.register(cookie, {
   hook: 'onRequest',
   parseOptions: {},
 });
-
-await fastify.register(authPlugin);
 
 await fastify.register(swagger, {
   openapi: {

@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { hashPassword } from "@better-auth/utils/password";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
@@ -37,7 +37,7 @@ async function createUser(
     return existing;
   }
 
-  const passwordHash = await hashPassword(password);
+  const passwordHash = await bcrypt.hash(password, 12);
   const role = await prisma.role.findUnique({ where: { name: data.role } });
 
   const user = await prisma.user.create({

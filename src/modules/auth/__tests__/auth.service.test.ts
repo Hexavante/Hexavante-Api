@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { AuthService } from "../service/auth.service";
 import { prisma } from "../../../config/prisma";
-import { auth } from "../../../config/auth";
 import { BadRequestError, ConflictError } from "../../../lib/errors/AppError";
 
 // Mock dependencies
@@ -15,25 +14,29 @@ vi.mock("../../../config/prisma", () => ({
     role: {
       findUnique: vi.fn(),
     },
-  },
-}));
-
-vi.mock("../../../config/auth", () => ({
-  auth: {
-    api: {
-      signOut: vi.fn(),
-      getSession: vi.fn(),
+    session: {
+      create: vi.fn(),
+      deleteMany: vi.fn(),
     },
   },
 }));
 
-vi.mock("@better-auth/utils/password", () => ({
+vi.mock("../../../lib/password", () => ({
   hashPassword: vi.fn().mockResolvedValue("hashed-password"),
   verifyPassword: vi.fn(),
 }));
 
-vi.mock("better-auth/node", () => ({
-  fromNodeHeaders: vi.fn().mockReturnValue({}),
+vi.mock("../../../lib/session", () => ({
+  createSession: vi.fn().mockResolvedValue({
+    id: "session-1",
+    token: "test-token",
+    userId: "user-1",
+    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+  }),
+  deleteSession: vi.fn(),
+  deleteSessionsByUserId: vi.fn(),
+  validateSession: vi.fn(),
+  parseSessionToken: vi.fn(),
 }));
 
 describe("AuthService", () => {
@@ -52,12 +55,13 @@ describe("AuthService", () => {
         fullName: "Test User",
         username: "testuser",
         passwordHash: "hashed-password",
+        avatarUrl: null,
         roles: [{ role: { name: "user" } }],
       };
 
       vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any);
-      const { verifyPassword } = await import("@better-auth/utils/password");
-      vi.mocked(verifyPassword).mockResolvedValue(true as any);
+      const { verifyPassword } = await import("../../../lib/password");
+      vi.mocked(verifyPassword).mockResolvedValue(true);
 
       const result = await authService.signIn(
         "test@example.com",
@@ -68,13 +72,9 @@ describe("AuthService", () => {
         where: { email: "test@example.com" },
         include: { roles: { include: { role: true } } },
       });
-      expect(result).toEqual({
-        id: "user-1",
-        name: "Test User",
-        email: "test@example.com",
-        username: "testuser",
-        roles: ["user"],
-      });
+      expect(result).toBeDefined();
+      expect(result?.user.name).toEqual("Test User");
+      expect(result?.session.token).toEqual("test-token");
     });
 
     it("should return null when user does not exist", async () => {
@@ -97,8 +97,8 @@ describe("AuthService", () => {
       };
 
       vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any);
-      const { verifyPassword } = await import("@better-auth/utils/password");
-      vi.mocked(verifyPassword).mockResolvedValue(false as any);
+      const { verifyPassword } = await import("../../../lib/password");
+      vi.mocked(verifyPassword).mockResolvedValue(false);
 
       const result = await authService.signIn(
         "test@example.com",
@@ -207,7 +207,6 @@ describe("AuthService", () => {
     });
 
     it("should allow users who are exactly 13 years old", async () => {
-      // Create a date that is exactly 13 years ago
       const today = new Date();
       const birthDate = new Date(
         today.getFullYear() - 13,
@@ -237,12 +236,12 @@ describe("AuthService", () => {
   });
 
   describe("signOut", () => {
-    it("should call auth.api.signOut", async () => {
-      const headers = { cookie: "session_token=test" };
+    it("should delete session", async () => {
+      const { deleteSession } = await import("../../../lib/session");
 
-      await authService.signOut(headers);
+      await authService.signOut("test-token");
 
-      expect(auth.api.signOut).toHaveBeenCalled();
+      expect(deleteSession).toHaveBeenCalledWith("test-token");
     });
   });
 
@@ -253,21 +252,19 @@ describe("AuthService", () => {
         session: { id: "session-1" },
       };
 
-      vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any);
+      const { validateSession } = await import("../../../lib/session");
+      vi.mocked(validateSession).mockResolvedValue(mockSession as any);
 
-      const result = await authService.getSession({
-        cookie: "session_token=test",
-      });
+      const result = await authService.getSession("test-token");
 
       expect(result).toEqual(mockSession);
     });
 
     it("should return null when session is invalid", async () => {
-      vi.mocked(auth.api.getSession).mockResolvedValue(null);
+      const { validateSession } = await import("../../../lib/session");
+      vi.mocked(validateSession).mockResolvedValue(null);
 
-      const result = await authService.getSession({
-        cookie: "session_token=invalid",
-      });
+      const result = await authService.getSession("invalid-token");
 
       expect(result).toBeNull();
     });

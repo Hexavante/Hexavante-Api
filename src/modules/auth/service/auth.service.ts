@@ -1,10 +1,8 @@
-import { auth } from '../../../config/auth';
 import { prisma } from '../../../config/prisma';
 import { RegisterInput } from '../schemas/auth.schemas';
 import { BadRequestError, ConflictError } from '../../../lib/errors/AppError';
-import { hashPassword, verifyPassword } from '@better-auth/utils/password';
-import { fromNodeHeaders } from 'better-auth/node';
-import bcrypt from 'bcryptjs';
+import { hashPassword, verifyPassword } from '../../../lib/password';
+import { createSession, deleteSession, validateSession } from '../../../lib/session';
 
 const MIN_AGE = 13;
 
@@ -22,12 +20,8 @@ function assertMinimumAge(birthDate: Date): void {
   }
 }
 
-function isBcryptHash(hash: string): boolean {
-  return hash.startsWith('$2a$') || hash.startsWith('$2b$') || hash.startsWith('$2y$') || hash.includes(':');
-}
-
 export class AuthService {
-  async signIn(email: string, password: string) {
+  async signIn(email: string, password: string, ipAddress?: string, userAgent?: string) {
     const user = await prisma.user.findUnique({
       where: { email },
       include: {
@@ -37,20 +31,24 @@ export class AuthService {
 
     if (!user || !user.passwordHash) return null;
 
-    let valid = false;
-    if (isBcryptHash(user.passwordHash)) {
-      valid = await bcrypt.compare(password, user.passwordHash);
-    } else {
-      valid = await verifyPassword(user.passwordHash, password);
-    }
+    const valid = await verifyPassword(password, user.passwordHash);
     if (!valid) return null;
 
+    const session = await createSession(user.id, ipAddress, userAgent);
+
     return {
-      id: user.id,
-      name: user.fullName,
-      email: user.email,
-      username: user.username,
-      roles: user.roles.map((r) => r.role.name),
+      user: {
+        id: user.id,
+        name: user.fullName,
+        email: user.email,
+        username: user.username,
+        avatarUrl: user.avatarUrl,
+        roles: user.roles.map((r: { role: { name: string } }) => r.role.name),
+      },
+      session: {
+        token: session.token,
+        expiresAt: session.expiresAt,
+      },
     };
   }
 
@@ -96,12 +94,12 @@ export class AuthService {
     return created;
   }
 
-  async signOut(headers: Record<string, string | string[] | undefined>) {
-    await auth.api.signOut({ headers: fromNodeHeaders(headers) });
+  async signOut(token: string) {
+    await deleteSession(token);
   }
 
-  async getSession(headers: Record<string, string | string[] | undefined>) {
-    return auth.api.getSession({ headers: fromNodeHeaders(headers) });
+  async getSession(token: string) {
+    return validateSession(token);
   }
 
   async getUserById(userId: string) {

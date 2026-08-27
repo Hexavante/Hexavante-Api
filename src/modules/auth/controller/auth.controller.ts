@@ -3,9 +3,7 @@ import { AuthService } from '../service/auth.service';
 import { UnauthorizedError } from '../../../lib/errors/AppError';
 import { loginSchema, registerSchema } from '../schemas/auth.schemas';
 import { validateBody } from '../../../lib/validation/validate';
-import { auth } from '../../../config/auth';
-import { fromNodeHeaders } from 'better-auth/node';
-import { createHmac } from 'crypto';
+import { parseSessionToken } from '../../../lib/session';
 
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -14,78 +12,30 @@ export class AuthController {
     await validateBody(loginSchema)(request, reply);
     const body = request.body as { email: string; password: string };
 
-    const user = await this.authService.signIn(body.email, body.password);
-    if (!user) {
+    const result = await this.authService.signIn(
+      body.email,
+      body.password,
+      request.ip,
+      request.headers['user-agent'],
+    );
+    if (!result) {
       throw new UnauthorizedError('Credenciais inválidas');
     }
 
-    reply.send({
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        username: user.username,
-        roles: user.roles,
-      },
+    reply.setCookie('__Secure-hexavante.session_token', result.session.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60, // 7 days
+      domain: process.env.NODE_ENV === 'production' ? '.hexavante.com.br' : undefined,
     });
-  }
-
-  async loginWithSession(request: FastifyRequest, reply: FastifyReply): Promise<void> {
-    await validateBody(loginSchema)(request, reply);
-    const body = request.body as { email: string; password: string; rememberMe?: boolean };
-
-    const user = await this.authService.signIn(body.email, body.password);
-    if (!user) {
-      throw new UnauthorizedError('Credenciais inválidas');
-    }
-
-    const authContext = await auth.$context;
-    const session = await authContext.internalAdapter.createSession(user.id, body.rememberMe === false);
-    if (!session) {
-      throw new UnauthorizedError('Falha ao criar sessão');
-    }
-
-    const cookieName = authContext.authCookies.sessionToken.name;
-    const cookieAttributes = authContext.authCookies.sessionToken.attributes;
-    const maxAge = body.rememberMe === false ? undefined : cookieAttributes.maxAge;
-
-    // Manually sign cookie with Better Auth's expected base64 signature (with padding)
-    // Better Auth's getSignedCookie expects: base64 with padding, 44 chars ending with =
-    const secret = authContext.secret;
-    const signCookie = (value: string) => {
-      const hmac = createHmac('sha256', secret).update(value).digest('base64');
-      return `${value}.${hmac}`;
-    };
-
-    const signedToken = signCookie(session.token);
-
-    const sessionCookieOpts = {
-      ...cookieAttributes,
-      sameSite: (cookieAttributes.sameSite?.toLowerCase() as 'lax' | 'strict' | 'none') ?? 'lax',
-      maxAge,
-    } as const;
-
-    reply.setCookie(cookieName, signedToken, sessionCookieOpts);
-
-    if (body.rememberMe === false) {
-      const dontRememberAttrs = authContext.authCookies.dontRememberToken.attributes;
-      reply.setCookie(authContext.authCookies.dontRememberToken.name, signCookie('true'), {
-        ...dontRememberAttrs,
-        sameSite: (dontRememberAttrs.sameSite?.toLowerCase() as 'lax' | 'strict' | 'none') ?? 'lax',
-      } as const);
-    }
 
     reply.send({
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        username: user.username,
-        roles: user.roles,
-      },
+      user: result.user,
       session: {
-        token: signedToken,
-        maxAge: maxAge ?? cookieAttributes.maxAge,
+        token: result.session.token,
+        expiresAt: result.session.expiresAt,
       },
     });
   }
@@ -108,12 +58,28 @@ export class AuthController {
   }
 
   async logout(request: FastifyRequest, reply: FastifyReply): Promise<void> {
-    await this.authService.signOut(request.headers as any);
+    const token = parseSessionToken(request.headers.cookie || null);
+
+    if (token) {
+      await this.authService.signOut(token);
+    }
+
+    reply.clearCookie('__Secure-hexavante.session_token', {
+      path: '/',
+      domain: process.env.NODE_ENV === 'production' ? '.hexavante.com.br' : undefined,
+    });
+
     reply.send({ success: true });
   }
 
   async session(request: FastifyRequest, reply: FastifyReply): Promise<void> {
-    const session = await this.authService.getSession(request.headers as any);
+    const token = parseSessionToken(request.headers.cookie || null);
+
+    if (!token) {
+      throw new UnauthorizedError('Sessão inválida ou expirada');
+    }
+
+    const session = await this.authService.getSession(token);
     if (!session) {
       throw new UnauthorizedError('Sessão inválida ou expirada');
     }
@@ -123,26 +89,17 @@ export class AuthController {
       throw new UnauthorizedError('Usuário não encontrado');
     }
 
-    const impersonatorId = (session.session as { impersonatedBy?: string } | undefined)?.impersonatedBy;
-
-    let impersonator: { id: string; username: string | null } | null = null;
-    if (impersonatorId) {
-      impersonator = await this.authService.getUserBasicInfo(impersonatorId);
-    }
-
     reply.send({
       user: {
         id: user.id,
         name: user.fullName,
         email: user.email,
         username: user.username,
-        roles: user.roles.map((r) => r.role.name),
+        avatarUrl: user.avatarUrl,
+        roles: user.roles.map((r: { role: { name: string } }) => r.role.name),
       },
       session: {
-        impersonatedBy: impersonatorId ?? null,
-        impersonator: impersonator
-          ? { id: impersonator.id, username: impersonator.username }
-          : null,
+        expiresAt: session.expiresAt,
       },
     });
   }
