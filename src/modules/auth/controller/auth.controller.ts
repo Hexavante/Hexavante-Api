@@ -49,10 +49,11 @@ export class AuthController {
     const cookieAttributes = authContext.authCookies.sessionToken.attributes;
     const maxAge = body.rememberMe === false ? undefined : cookieAttributes.maxAge;
 
-    // Manually sign cookie with Better Auth's base64url HMAC (cookie plugin uses base64)
+    // Manually sign cookie with Better Auth's expected base64 signature (with padding)
+    // Better Auth's getSignedCookie expects: base64 with padding, 44 chars ending with =
     const secret = authContext.secret;
     const signCookie = (value: string) => {
-      const hmac = createHmac('sha256', secret).update(value).digest('base64url');
+      const hmac = createHmac('sha256', secret).update(value).digest('base64');
       return `${value}.${hmac}`;
     };
 
