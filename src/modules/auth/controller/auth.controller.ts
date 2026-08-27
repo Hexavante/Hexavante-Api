@@ -38,29 +38,34 @@ export class AuthController {
       throw new UnauthorizedError('Credenciais inválidas');
     }
 
-    const authContext = await auth.$context;
-    const session = await authContext.internalAdapter.createSession(user.id, body.rememberMe === false);
-    if (!session) {
-      throw new UnauthorizedError('Falha ao criar sessão');
-    }
-
-    const headers = new Headers();
-    headers.set('Cookie', request.headers.cookie || '');
-    const cookieHeaders = await auth.api.signInEmail({
-      body: { email: body.email, password: body.password, rememberMe: body.rememberMe !== false },
-      headers: fromNodeHeaders(headers as any),
-      asResponse: true,
+    const req = new Request(`${auth.options.baseURL}/api/auth/sign-in/email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: request.headers.cookie || '',
+        Origin: request.headers.origin || '',
+      },
+      body: JSON.stringify({
+        email: body.email,
+        password: body.password,
+        rememberMe: body.rememberMe !== false,
+      }),
     });
 
-    if (!cookieHeaders.ok) {
-      throw new UnauthorizedError('Falha ao criar sessão');
-    }
+    const response = await auth.handler(req);
 
-    cookieHeaders.headers.forEach((value, key) => {
+    response.headers.forEach((value, key) => {
       if (key !== 'content-type' && key !== 'content-length') {
         reply.header(key, value);
       }
     });
+
+    const responseBody = response.body ? await response.text() : 'null';
+    const data = JSON.parse(responseBody);
+
+    if (!response.ok) {
+      throw new UnauthorizedError(data.message || 'Credenciais inválidas');
+    }
 
     reply.send({
       user: {
