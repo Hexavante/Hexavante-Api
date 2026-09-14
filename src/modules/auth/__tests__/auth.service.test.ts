@@ -10,6 +10,8 @@ vi.mock("../../../config/prisma", () => ({
       findUnique: vi.fn(),
       findFirst: vi.fn(),
       create: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
     },
     role: {
       findUnique: vi.fn(),
@@ -17,6 +19,15 @@ vi.mock("../../../config/prisma", () => ({
     session: {
       create: vi.fn(),
       deleteMany: vi.fn(),
+    },
+    trustedDevice: {
+      findUnique: vi.fn(),
+      upsert: vi.fn(),
+      updateMany: vi.fn(),
+    },
+    deviceVerificationCode: {
+      create: vi.fn(),
+      updateMany: vi.fn(),
     },
   },
 }));
@@ -56,12 +67,16 @@ describe("AuthService", () => {
         username: "testuser",
         passwordHash: "hashed-password",
         avatarUrl: null,
+        twoFactorEnabled: false,
         roles: [{ role: { name: "user" } }],
       };
 
       vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any);
       const { verifyPassword } = await import("../../../lib/password");
       vi.mocked(verifyPassword).mockResolvedValue(true);
+      vi.mocked(prisma.trustedDevice.findUnique).mockResolvedValue({
+        revokedAt: null,
+      } as any);
 
       const result = await authService.signIn(
         "test@example.com",
@@ -75,6 +90,38 @@ describe("AuthService", () => {
       expect(result).toBeDefined();
       expect(result?.user.name).toEqual("Test User");
       expect(result?.session.token).toEqual("test-token");
+    });
+
+    it("should require verification when device is not trusted", async () => {
+      const mockUser = {
+        id: "user-1",
+        email: "test@example.com",
+        fullName: "Test User",
+        username: "testuser",
+        passwordHash: "hashed-password",
+        avatarUrl: null,
+        twoFactorEnabled: false,
+        roles: [{ role: { name: "user" } }],
+      };
+
+      vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any);
+      const { verifyPassword } = await import("../../../lib/password");
+      vi.mocked(verifyPassword).mockResolvedValue(true);
+      vi.mocked(prisma.trustedDevice.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.deviceVerificationCode.updateMany).mockResolvedValue({ count: 0 } as any);
+      vi.mocked(prisma.deviceVerificationCode.create).mockResolvedValue({ id: "ver-1" } as any);
+
+      const result = await authService.signIn(
+        "test@example.com",
+        "password123",
+        "127.0.0.1",
+        "test-agent"
+      );
+
+      expect(result).toMatchObject({
+        requiresVerification: true,
+        verificationId: "ver-1",
+      });
     });
 
     it("should return null when user does not exist", async () => {
