@@ -38,4 +38,10 @@ export async function examRoutes(fastify: FastifyInstance) {
     { preHandler: [authenticate] },
     asyncHandler(examController.getSubjectStats.bind(examController)),
   )
+
+  fastify.get(
+    '/api/v1/exams/:id',
+    { preHandler: [optionalAuth] },
+    asyncHandler(examController.getById.bind(examController)),
+  )
 }

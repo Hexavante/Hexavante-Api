@@ -1,4 +1,5 @@
 import { prisma } from '../../../config/prisma'
+import { NotFoundError } from '../../../lib/errors/AppError'
 import type { ExamListItem, AttemptHistoryItem, PaginatedAttempts, ExamStats, EvolutionPoint, SubjectStat } from '../types/exam.types'
 import { buildPagination } from '../../../lib/serializers/base'
 
@@ -46,6 +47,35 @@ export class ExamService {
       isPremiumOnly: exam.isPremiumOnly,
       userAttemptCount: attemptMap.get(exam.id) ?? 0,
     }))
+  }
+
+  async getPublicBySlugOrId(slugOrId: string): Promise<ExamListItem> {
+    const exam = await prisma.exam.findFirst({
+      where: {
+        isPublished: true,
+        OR: [{ slug: slugOrId }, { id: slugOrId }],
+      },
+      include: {
+        _count: { select: { questions: true, attempts: true } },
+      },
+    })
+
+    if (!exam) {
+      throw new NotFoundError('Simulado não encontrado')
+    }
+
+    return {
+      id: exam.id,
+      slug: exam.slug,
+      title: exam.title,
+      description: exam.description,
+      coverImage: exam.coverImage,
+      examType: exam.examType,
+      questionCount: exam._count.questions,
+      timeLimit: exam.timeLimit,
+      isPremiumOnly: exam.isPremiumOnly,
+      userAttemptCount: 0,
+    }
   }
 
   async getHistory(userId: string, query: { tipo?: string; page?: number }): Promise<PaginatedAttempts> {

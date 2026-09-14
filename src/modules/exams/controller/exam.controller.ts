@@ -14,6 +14,12 @@ export class ExamController {
     reply.send(exams)
   }
 
+  async getById(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+    const { id } = request.params as { id: string };
+    const exam = await this.examService.getPublicBySlugOrId(id);
+    reply.send({ exam });
+  }
+
   async getHistory(request: FastifyRequest, reply: FastifyReply): Promise<void> {
     await validateQuery(historyQuerySchema)(request, reply)
     const userId = request.user!.id
