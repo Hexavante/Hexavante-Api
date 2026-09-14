@@ -44,11 +44,18 @@ model User {
   banReason         String?   @map("ban_reason")
   banExpires        DateTime? @map("ban_expires")
 
+  twoFactorEnabled  Boolean   @default(false) @map("two_factor_enabled")
+  presence          String    @default("ONLINE")
+  presenceUpdatedAt DateTime? @map("presence_updated_at")
+  lastSeenAt        DateTime? @map("last_seen_at")
+
   roles              UserRole[]
   xp                 UserXP?
   wallet             UserWallet?
   accounts           Account[]
   sessions           Session[]
+  trustedDevices     TrustedDevice[]
+  deviceCodes        DeviceVerificationCode[]
   instructedCourses  CourseInstructor[]
   enrollments        CourseEnrollment[]
   lessonProgresses   LessonProgress[]
@@ -1195,4 +1202,39 @@ model LiveChatMessage {
   @@index([userId])
   @@index([createdAt])
   @@map("live_chat_messages")
+}
+
+model TrustedDevice {
+  id          String    @id @default(cuid())
+  userId      String    @map("user_id")
+  fingerprint String
+  name        String?
+  ipAddress   String?   @map("ip_address")
+  userAgent   String?   @map("user_agent") @db.Text
+  lastSeenAt  DateTime  @default(now()) @map("last_seen_at")
+  revokedAt   DateTime? @map("revoked_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, fingerprint])
+  @@index([userId])
+  @@map("trusted_devices")
+}
+
+model DeviceVerificationCode {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  fingerprint String?
+  purpose     String   @default("DEVICE")
+  code        String
+  attempts    Int      @default(0)
+  used        Boolean  @default(false)
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("device_verification_codes")
 }

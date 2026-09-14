@@ -13,6 +13,8 @@ export interface UserProfile {
   isVerified: boolean;
   isPremium: boolean;
   coins: number;
+  twoFactorEnabled: boolean;
+  presence: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -26,6 +28,7 @@ export interface PublicProfile {
   profileVisibility: string;
   isVerified: boolean;
   isPremium: boolean;
+  presence: "ONLINE" | "AWAY" | "STUDYING" | "DND" | "OFFLINE";
   createdAt: Date;
 }
 

@@ -22,6 +22,14 @@ export class AuthController {
       throw new UnauthorizedError('Credenciais inválidas');
     }
 
+    if ('requiresVerification' in result && result.requiresVerification) {
+      reply.status(202).send({
+        requiresVerification: true,
+        verificationId: result.verificationId,
+      });
+      return;
+    }
+
     reply.setCookie('__Secure-hexavante.session_token', result.session.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

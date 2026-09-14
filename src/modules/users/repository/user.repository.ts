@@ -33,6 +33,8 @@ export class UserRepository implements IUserRepository {
       isVerified: user.isVerified,
       isPremium: user.isPremium,
       coins: user.coins,
+      twoFactorEnabled: user.twoFactorEnabled,
+      presence: user.presence,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
@@ -59,11 +61,19 @@ export class UserRepository implements IUserRepository {
         profileVisibility: true,
         isVerified: true,
         isPremium: true,
+        presence: true,
+        lastSeenAt: true,
         createdAt: true,
       },
     });
 
     if (!user) return null;
+
+    const { SecurityService } = await import("../../security/service/security.service");
+    const presence = SecurityService.effectivePresence({
+      presence: user.presence,
+      lastSeenAt: user.lastSeenAt,
+    });
 
     return {
       id: user.id,
@@ -74,6 +84,7 @@ export class UserRepository implements IUserRepository {
       profileVisibility: user.profileVisibility,
       isVerified: user.isVerified,
       isPremium: user.isPremium,
+      presence,
       createdAt: user.createdAt,
     };
   }
@@ -109,6 +120,8 @@ export class UserRepository implements IUserRepository {
       isVerified: user.isVerified,
       isPremium: user.isPremium,
       coins: user.coins,
+      twoFactorEnabled: user.twoFactorEnabled,
+      presence: user.presence,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };

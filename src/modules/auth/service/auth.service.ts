@@ -3,6 +3,7 @@ import { RegisterInput } from '../schemas/auth.schemas';
 import { BadRequestError, ConflictError } from '../../../lib/errors/AppError';
 import { hashPassword, verifyPassword } from '../../../lib/password';
 import { createSession, deleteSession, validateSession } from '../../../lib/session';
+import { SecurityService, fingerprintDevice, deviceDisplayName } from '../../security/service/security.service';
 
 const MIN_AGE = 13;
 
@@ -34,6 +35,23 @@ export class AuthService {
     const valid = await verifyPassword(password, user.passwordHash);
     if (!valid) return null;
 
+    const security = new SecurityService();
+    const fingerprint = fingerprintDevice(userAgent, ipAddress);
+    const trusted = await security.isDeviceTrusted(user.id, fingerprint);
+
+    // Dispositivo novo ou 2FA ativo: exige código por e-mail antes da sessão
+    if (!trusted || user.twoFactorEnabled) {
+      const { verificationId } = await security.issueCode({
+        userId: user.id,
+        email: user.email,
+        fingerprint,
+        purpose: "DEVICE",
+        deviceName: deviceDisplayName(userAgent, ipAddress),
+      });
+      return { requiresVerification: true as const, verificationId };
+    }
+
+    await security.touchDevice(user.id, fingerprint, userAgent, ipAddress);
     const session = await createSession(user.id, ipAddress, userAgent);
 
     return {
@@ -75,6 +93,9 @@ export class AuthService {
         email: data.email,
         passwordHash,
         birthDate: data.birthDate.toISOString().split('T')[0],
+        phone: data.phone || null,
+        city: data.city || null,
+        state: data.state || null,
         ...(userRole && {
           roles: {
             create: { roleId: userRole.id },

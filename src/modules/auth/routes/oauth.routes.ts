@@ -169,6 +169,22 @@ export async function oauthRoutes(fastify: FastifyInstance) {
       // Cria sessão
       const session = await createSession(user.id, request.ip, request.headers['user-agent']);
 
+      // OAuth é autenticação forte: confia neste dispositivo automaticamente
+      try {
+        const { SecurityService, fingerprintDevice } = await import(
+          '../../security/service/security.service'
+        );
+        const security = new SecurityService();
+        await security.trustDevice(
+          user.id,
+          fingerprintDevice(request.headers['user-agent'], request.ip),
+          request.headers['user-agent'],
+          request.ip,
+        );
+      } catch (trustError) {
+        console.error("[OAuth] Falha ao registrar dispositivo:", trustError);
+      }
+
       // Set cookie
       reply.setCookie('__Secure-hexavante.session_token', session.token, {
         httpOnly: true,

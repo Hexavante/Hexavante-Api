@@ -17,6 +17,9 @@ export const registerSchema = z.object({
   birthDate: z.coerce.date({
     error: 'Data de nascimento inválida',
   }),
+  phone: z.string().max(20).optional(),
+  city: z.string().max(80).optional(),
+  state: z.string().max(40).optional(),
 });
 
 export const refreshTokenSchema = z.object({

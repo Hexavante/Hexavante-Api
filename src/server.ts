@@ -21,6 +21,7 @@ import { conversationRoutes } from "./modules/conversations/routes/conversation.
 import { instructorRoutes } from "./modules/instructor/routes/instructor.routes";
 import { liveRoomRoutes } from "./modules/live-rooms/routes/live-room.routes";
 import { moderationRoutes } from "./modules/moderation/routes/moderation.routes";
+import { securityRoutes } from "./modules/security/routes/security.routes";
 import { prisma } from "./config/prisma";
 import { corsPlugin } from "./plugins/cors";
 import { helmetPlugin } from "./plugins/helmet";
@@ -156,6 +157,7 @@ await fastify.register(conversationRoutes);
 await fastify.register(instructorRoutes);
 await fastify.register(liveRoomRoutes);
 await fastify.register(moderationRoutes);
+await fastify.register(securityRoutes);
 
 fastify.get("/", async () => {
   return {
