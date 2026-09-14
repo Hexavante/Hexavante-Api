@@ -23,6 +23,10 @@ export class RankingService {
       maxLimit,
     );
 
+    if (total === 0) {
+      return this.getAllTimeLeaderboard(page, maxLimit);
+    }
+
     const data = entries.map((e) => ({
       rank: e.rank,
       userId: e.userId,
