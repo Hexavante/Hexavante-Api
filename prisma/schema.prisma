@@ -854,6 +854,10 @@ enum StoreItemCategory {
   REVIEW_PACK
   PET
   PET_COSMETIC
+  BADGE
+  FRAME
+  EMOJI_PACK
+  PROFILE_BACKGROUND
 }
 
 model StoreItem {
@@ -992,6 +996,8 @@ enum ModerationLogType {
   EXAM_RESET
   PASSWORD_RESET
   IMPERSONATE
+  DELETE_USER
+  DELETE_PROFILE
   OTHER
 }
 
@@ -1327,7 +1333,8 @@ model TutorialTag {
   tutorial   Tutorial @relation(fields: [tutorialId], references: [id], onDelete: Cascade)
   tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
-  @@unique([tutorialId, tagId])
+  @@id([tutorialId, tagId])
+  @@unique([tutorialId, tagId], map: "tutorial_tags_tutorial_id_tag_id_key")
   @@index([tagId])
   @@map("tutorial_tags")
 }
