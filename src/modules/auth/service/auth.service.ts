@@ -39,16 +39,24 @@ export class AuthService {
     const fingerprint = fingerprintDevice(userAgent, ipAddress);
     const trusted = await security.isDeviceTrusted(user.id, fingerprint);
 
-    // Dispositivo novo ou 2FA ativo: exige código por e-mail antes da sessão
-    if (!trusted || user.twoFactorEnabled) {
+    // E-mail não confirmado, dispositivo novo ou 2FA: exige código por e-mail
+    const reason = !user.emailVerified
+      ? ("EMAIL_VERIFY" as const)
+      : !trusted
+        ? ("DEVICE" as const)
+        : user.twoFactorEnabled
+          ? ("TWO_FACTOR" as const)
+          : null;
+
+    if (reason) {
       const { verificationId } = await security.issueCode({
         userId: user.id,
         email: user.email,
         fingerprint,
-        purpose: "DEVICE",
+        purpose: reason === "EMAIL_VERIFY" ? "EMAIL_VERIFY" : "DEVICE",
         deviceName: deviceDisplayName(userAgent, ipAddress),
       });
-      return { requiresVerification: true as const, verificationId };
+      return { requiresVerification: true as const, verificationId, reason };
     }
 
     await security.touchDevice(user.id, fingerprint, userAgent, ipAddress);

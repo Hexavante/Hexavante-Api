@@ -1,7 +1,7 @@
 import { createHash, randomInt } from "crypto";
 import { prisma } from "../../../config/prisma";
 import { createSession } from "../../../lib/session";
-import { sendEmail, deviceCodeEmailHtml, twoFactorEmailHtml } from "../../../lib/email";
+import { sendEmail, deviceCodeEmailHtml, emailVerifyHtml, twoFactorEmailHtml } from "../../../lib/email";
 import { AppError, NotFoundError, BadRequestError } from "../../../lib/errors/AppError";
 
 export const PRESENCE_STATUSES = ["ONLINE", "AWAY", "STUDYING", "DND", "INVISIBLE"] as const;
@@ -93,7 +93,7 @@ export class SecurityService {
     userId: string;
     email: string;
     fingerprint?: string | null;
-    purpose: "DEVICE" | "TWO_FACTOR";
+    purpose: "DEVICE" | "TWO_FACTOR" | "EMAIL_VERIFY";
     deviceName?: string;
   }): Promise<{ verificationId: string }> {
     await prisma.deviceVerificationCode.updateMany({
@@ -119,6 +119,14 @@ export class SecurityService {
         deviceCodeEmailHtml(code, input.deviceName ?? "um novo dispositivo"),
         `Um acesso à sua conta Hexavante foi feito de ${input.deviceName ?? "um novo dispositivo"}. Código: ${code} (expira em 10 minutos)`,
         "device",
+      );
+    } else if (input.purpose === "EMAIL_VERIFY") {
+      await mailCode(
+        input.email,
+        "Confirme seu e-mail — Hexavante",
+        emailVerifyHtml(code),
+        `Confirme seu e-mail na Hexavante com o código: ${code} (expira em 10 minutos)`,
+        "email-verify",
       );
     } else {
       await mailCode(
@@ -201,6 +209,11 @@ export class SecurityService {
     const { userId, fingerprint } = await this.consumeCode(verificationId, code);
     const fp = fingerprint ?? fingerprintDevice(userAgent, ip);
     await this.trustDevice(userId, fp, userAgent, ip);
+    // Confirmar o código prova a posse do e-mail
+    await prisma.user.updateMany({
+      where: { id: userId, emailVerified: false },
+      data: { emailVerified: true },
+    });
 
     const user = await prisma.user.findUnique({
       where: { id: userId },

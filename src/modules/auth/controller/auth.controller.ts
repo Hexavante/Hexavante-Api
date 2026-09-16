@@ -26,6 +26,7 @@ export class AuthController {
       reply.status(202).send({
         requiresVerification: true,
         verificationId: result.verificationId,
+        reason: result.reason,
       });
       return;
     }

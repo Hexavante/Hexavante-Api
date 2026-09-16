@@ -56,8 +56,18 @@ export function deviceCodeEmailHtml(code: string, deviceName: string): string {
   `;
 }
 
-export function twoFactorEmailHtml(code: string): string {
+export function emailVerifyHtml(code: string): string {
   return `
+    <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; background: #0a0a14; color: #f1f5f9; border-radius: 12px; padding: 32px;">
+      <h1 style="font-size: 20px; margin: 0 0 8px;">Confirme seu e-mail</h1>
+      <p style="font-size: 14px; color: #94a3b8;">Para ativar sua conta Hexavante, confirme que este e-mail é seu com o código abaixo. Expira em 10 minutos.</p>
+      <div style="margin: 24px 0; text-align: center; font-size: 36px; font-weight: bold; letter-spacing: 12px; color: #22d3ee;">${code}</div>
+      <p style="font-size: 12px; color: #64748b;">Se você não criou uma conta, ignore este e-mail.</p>
+    </div>
+  `;
+}
+
+export function twoFactorEmailHtml(code: string): string {  return `
     <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; background: #0a0a14; color: #f1f5f9; border-radius: 12px; padding: 32px;">
       <h1 style="font-size: 20px; margin: 0 0 8px;">Código de verificação</h1>
       <p style="font-size: 14px; color: #94a3b8;">Use o código abaixo para concluir seu login na Hexavante. Expira em 10 minutos.</p>

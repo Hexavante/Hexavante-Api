@@ -68,6 +68,7 @@ describe("AuthService", () => {
         passwordHash: "hashed-password",
         avatarUrl: null,
         twoFactorEnabled: false,
+        emailVerified: true,
         roles: [{ role: { name: "user" } }],
       };
 
@@ -101,6 +102,7 @@ describe("AuthService", () => {
         passwordHash: "hashed-password",
         avatarUrl: null,
         twoFactorEnabled: false,
+        emailVerified: true,
         roles: [{ role: { name: "user" } }],
       };
 
