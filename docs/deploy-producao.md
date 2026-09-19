@@ -1,4 +1,8 @@
-# Deploy em Produção (API)
+# Deploy em produção — Hexavante API
+
+Documento de referência do deploy **implementado** na VPS.
+
+---
 
 ## Topologia
 
@@ -31,11 +35,11 @@ O entrypoint roda `prisma db push` (recusa mudanças destrutivas sozinho) e sobe
 ## Verificação
 
 ```bash
-curl http://localhost:3045/                                        # 200
-curl http://localhost:3045/api/v1/platform/stats                   # 200 + números
-docker logs hexavante-api | grep -i "connected\|error"             # DB/Redis ok, sem error
+curl http://localhost:3045/                          # 200
+curl http://localhost:3045/api/v1/platform/stats     # 200 + números
+docker logs hexavante-api | grep -i "connected\|error"  # DB/Redis ok, sem error
 ```
 
 ## Rollback
 
-Rebuild da tag/commit anterior e `run` igual; banco nunca sofre downgrade (só aditivo).
+Rebuild da tag/commit anterior e `run` igual; banco nunca sofre downgrade (só aditivo). Ver [der-logico.md](der-logico.md).

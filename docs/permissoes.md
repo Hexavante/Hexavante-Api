@@ -1,4 +1,8 @@
-# Permissões (API)
+# Permissões — Hexavante API
+
+Documento de referência do controle de acesso **implementado**.
+
+---
 
 ## Papéis (`roles` + `user_roles`)
 
@@ -7,7 +11,7 @@
 ## Middlewares
 
 | Middleware | Exige | Uso |
-|---|---|---|
+|------------|-------|-----|
 | (nenhum) | Nada | Catálogo público, `platform/stats`, `achievements`, `verify/:code` |
 | `optionalAuth` | Sessão se houver | Listas que personalizam logado (ex. tentativas) |
 | `authenticate` | Sessão válida + não banido | Todo o resto privado |
@@ -16,7 +20,7 @@
 ## Matriz resumida
 
 | Ação | Quem |
-|---|---|
+|------|------|
 | Matricular, progresso, comprar, heartbeat | Qualquer logado |
 | Criar/editar conteúdo | `INSTRUCTOR` (+ aprovação p/ publicar) |
 | Moderar, banir, booster global | `MODERATOR`/`ADMIN` |

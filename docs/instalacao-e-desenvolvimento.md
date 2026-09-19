@@ -1,4 +1,8 @@
-# Instalação e Desenvolvimento (API)
+# Instalação e desenvolvimento — Hexavante API
+
+Documento de referência do setup **implementado** neste repositório.
+
+---
 
 ## Pré-requisitos
 

@@ -1,7 +1,11 @@
-# Glossário (API)
+# Glossário — Hexavante API
+
+Documento de referência dos termos usados no código e nas rotas.
+
+---
 
 | Termo | Significado |
-|---|---|
+|-------|-------------|
 | Sessão | `Session` de 7 dias identificada pelo cookie `__Secure-hexavante.session_token` |
 | Fingerprint | `sha256(userAgent\|ip)` identificando um aparelho |
 | Aparelho confiável | `TrustedDevice` não revogado — dispensa código (salvo 2FA) |

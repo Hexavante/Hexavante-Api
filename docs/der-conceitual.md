@@ -1,6 +1,8 @@
-# DER Conceitual (API)
+# DER conceitual — Hexavante API
 
-Entidades e relacionamentos principais (nomes lógicos):
+Documento de referência das entidades **implementadas** no banco `hexavante`.
+
+---
 
 ```
 USER 1───* SESSION, USER_ROLE, USER_XP, USER_WALLET
@@ -19,4 +21,4 @@ NOTIFICATION *───1 USER · CONVERSATION *───* USER (DIRECT_MESSAGE)
 INSTRUCTOR_APPLICATION *───1 USER (+ revisor)
 ```
 
-Sessão expira em 7 dias; códigos de verificação em 10 min; presença deriva de `lastSeenAt` (5 min).
+Sessão expira em 7 dias; códigos de verificação em 10 min; presença deriva de `lastSeenAt` (5 min). Ver o lógico em [der-logico.md](der-logico.md).

@@ -1,11 +1,13 @@
-# DER Lógico (API)
+# DER lógico — Hexavante API
 
-O schema (`prisma/schema.prisma`) é o **espelho exato** do banco `hexavante` — mesma cobertura do schema do web (models, campos, tipos, defaults, `@map`, enums, índices e PKs, incluindo a PK composta de `tutorial_tags`).
+Documento de referência do schema **implementado** (`prisma/schema.prisma`), espelho exato do banco de produção — mesma cobertura do schema do web (models, campos, tipos, defaults, `@map`, enums, índices e PKs).
+
+---
 
 ## Tabelas-chave e mapas
 
 | Model | Tabela | Observações |
-|---|---|---|
+|-------|--------|-------------|
 | `User` | `users` | `two_factor_enabled`, `presence`, `last_seen_at`, `banner_url` |
 | `Session` | `sessions` | `session_token` único; `user_id` indexado |
 | `TrustedDevice` | `trusted_devices` | `@@unique([userId, fingerprint])` |
@@ -18,3 +20,4 @@ O schema (`prisma/schema.prisma`) é o **espelho exato** do banco `hexavante` �
 - `snake_case` no banco via `@map`; `cuid()` nos ids; `DateTime` com mapas.
 - Enums alinhados com o web (`ModerationLogType`, `StoreItemCategory`...).
 - Índices nomeados (`map:`) replicados 1:1 — criados via `db push`, nunca à mão.
+- PK composta real de `tutorial_tags` espelhada (`@@id` + `@@unique` nomeada).
