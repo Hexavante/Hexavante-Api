@@ -95,12 +95,10 @@ export class SecurityService {
     fingerprint?: string | null;
     purpose: "DEVICE" | "TWO_FACTOR" | "EMAIL_VERIFY";
     deviceName?: string;
-  }): Promise<{ verificationId: string }> {
-    await prisma.deviceVerificationCode.updateMany({
-      where: { userId: input.userId, purpose: input.purpose, used: false },
-      data: { used: true },
-    });
-
+  }  ): Promise<{ verificationId: string }> {
+    // NOTA: códigos anteriores continuam válidos até expirar (10 min).
+    // Invalidá-los a cada reenvio prendia o usuário num loop quando
+    // o e-mail demorava ou ele digitava um código antigo.
     const code = newCode();
     const record = await prisma.deviceVerificationCode.create({
       data: {
