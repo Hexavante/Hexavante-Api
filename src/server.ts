@@ -30,6 +30,8 @@ import { compressPlugin } from "./plugins/compress";
 
 const fastify = Fastify({
   logger: false,
+  // nginx faz proxy; sem isso request.ip seria sempre o IP interno
+  trustProxy: true,
 });
 
 fastify.addHook("onRequest", (request, reply, done) => {

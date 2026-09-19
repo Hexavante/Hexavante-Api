@@ -10,13 +10,18 @@ export class AuthController {
 
   async login(request: FastifyRequest, reply: FastifyReply): Promise<void> {
     await validateBody(loginSchema)(request, reply);
-    const body = request.body as { email: string; password: string };
+    const body = request.body as { email: string; password: string; deviceUa?: string; deviceIp?: string };
+
+    // O app web repassa UA/IP reais do navegador (o fetch server-side
+    // chegaria aqui como UA "node" e IP interno para todo mundo).
+    const userAgent = body.deviceUa || (request.headers['user-agent'] as string | undefined);
+    const ipAddress = body.deviceIp || request.ip;
 
     const result = await this.authService.signIn(
       body.email,
       body.password,
-      request.ip,
-      request.headers['user-agent'],
+      ipAddress,
+      userAgent,
     );
     if (!result) {
       throw new UnauthorizedError('Credenciais inválidas');

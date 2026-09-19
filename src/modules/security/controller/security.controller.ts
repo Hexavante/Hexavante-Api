@@ -14,12 +14,14 @@ export class SecurityController {
 
   verifyDevice = asyncHandler(async (request: FastifyRequest, reply: FastifyReply) => {
     await validateBody(verifyDeviceSchema)(request, reply);
-    const body = request.body as { verificationId: string; code: string };
+    const body = request.body as { verificationId: string; code: string; deviceUa?: string; deviceIp?: string };
+    const userAgent = body.deviceUa || (request.headers["user-agent"] as string | undefined);
+    const ip = body.deviceIp || request.ip;
     const result = await this.securityService.finishDeviceVerification(
       body.verificationId,
       body.code,
-      request.headers["user-agent"],
-      request.ip,
+      userAgent,
+      ip,
     );
     reply.send(result);
   });
@@ -42,7 +44,10 @@ export class SecurityController {
   revokeDevice = asyncHandler(async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = request.user!.id;
     const { id } = request.params as { id: string };
-    const current = fingerprintDevice(request.headers["user-agent"], request.ip);
+    const body = (request.body ?? {}) as { deviceUa?: string; deviceIp?: string };
+    const userAgent = body.deviceUa || (request.headers["user-agent"] as string | undefined);
+    const ip = body.deviceIp || request.ip;
+    const current = fingerprintDevice(userAgent, ip);
     const result = await this.securityService.revokeDevice(userId, id, current);
     reply.send(result);
   });
