@@ -3,6 +3,10 @@ import { z } from 'zod';
 export const loginSchema = z.object({
   email: z.email('E-mail inválido').transform((v) => v.trim().toLowerCase()),
   password: z.string().min(1, 'Informe a senha'),
+  // UA/IP reais repassados pelo app web (validateBody remove chaves
+  // desconhecidas, então precisam estar declarados aqui)
+  deviceUa: z.string().max(500).optional(),
+  deviceIp: z.string().max(45).optional(),
 });
 
 export const registerSchema = z.object({
