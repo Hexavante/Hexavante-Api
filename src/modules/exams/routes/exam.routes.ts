@@ -44,4 +44,16 @@ export async function examRoutes(fastify: FastifyInstance) {
     { preHandler: [optionalAuth], schema: { summary: 'Detalhes da prova', tags: ['Exams'] } },
     asyncHandler(examController.getById.bind(examController)),
   )
+
+  fastify.post(
+    '/api/v1/exams/:id/start',
+    { preHandler: [authenticate], schema: { summary: 'Iniciar prova', tags: ['Exams'], security: [{ session: [] }] } },
+    asyncHandler(examController.startExam.bind(examController)),
+  )
+
+  fastify.post(
+    '/api/v1/exams/submit',
+    { preHandler: [authenticate], schema: { summary: 'Submeter respostas', tags: ['Exams'], security: [{ session: [] }] } },
+    asyncHandler(examController.submitExam.bind(examController)),
+  )
 }

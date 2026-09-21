@@ -1,7 +1,8 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
+import { z } from 'zod'
 import { ExamService } from '../service/exam.service'
-import { examQuerySchema, historyQuerySchema } from '../schemas/exam.schemas'
-import { validateQuery } from '../../../lib/validation/validate'
+import { examQuerySchema, historyQuerySchema, submitExamSchema } from '../schemas/exam.schemas'
+import { validateQuery, validateBody } from '../../../lib/validation/validate'
 
 export class ExamController {
   constructor(private readonly examService: ExamService) {}
@@ -44,5 +45,20 @@ export class ExamController {
     const userId = request.user!.id
     const stats = await this.examService.getSubjectStats(userId)
     reply.send(stats)
+  }
+
+  async startExam(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+    const userId = request.user!.id
+    const { id } = request.params as { id: string }
+    const result = await this.examService.startExam(userId, id)
+    reply.send(result)
+  }
+
+  async submitExam(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+    const userId = request.user!.id
+    await validateBody(submitExamSchema)(request, reply)
+    const data = request.body as z.infer<typeof submitExamSchema>
+    const result = await this.examService.submitExam(userId, data)
+    reply.send(result)
   }
 }

@@ -46,3 +46,48 @@ export interface SubjectStat {
   correct: number
   total: number
 }
+
+export interface ExamStartResponse {
+  attemptId: string
+  examId: string
+  title: string
+  timeLimit: number | null
+  startedAt: string
+  questions: ExamQuestionItem[]
+}
+
+export interface ExamQuestionItem {
+  id: string
+  statement: string
+  imageUrl: string | null
+  imageWidth: number | null
+  imageHeight: number | null
+  orderNumber: number
+  points: number
+  type: string
+  subject: string | null
+  alternatives: ExamAlternativeItem[]
+}
+
+export interface ExamAlternativeItem {
+  id: string
+  text: string
+}
+
+export interface ExamSubmitRequest {
+  attemptId: string
+  answers: {
+    questionId: string
+    alternativeId?: string
+    essayAnswer?: string
+  }[]
+}
+
+export interface ExamSubmitResponse {
+  attemptId: string
+  score: number
+  correctAnswers: number
+  totalQuestions: number
+  percentage: number
+  finishedAt: string
+}

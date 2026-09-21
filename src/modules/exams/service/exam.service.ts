@@ -1,6 +1,6 @@
 import { prisma } from '../../../config/prisma'
-import { NotFoundError } from '../../../lib/errors/AppError'
-import type { ExamListItem, AttemptHistoryItem, PaginatedAttempts, ExamStats, EvolutionPoint, SubjectStat } from '../types/exam.types'
+import { NotFoundError, ForbiddenError } from '../../../lib/errors/AppError'
+import type { ExamListItem, AttemptHistoryItem, PaginatedAttempts, ExamStats, EvolutionPoint, SubjectStat, ExamStartResponse, ExamSubmitRequest, ExamSubmitResponse } from '../types/exam.types'
 import { buildPagination } from '../../../lib/serializers/base'
 
 export class ExamService {
@@ -156,6 +156,156 @@ export class ExamService {
       date: a.finishedAt!.toISOString(),
       score: Math.round(a.score),
     }))
+  }
+
+  async startExam(userId: string, examId: string): Promise<ExamStartResponse> {
+    const exam = await prisma.exam.findFirst({
+      where: {
+        isPublished: true,
+        OR: [{ id: examId }, { slug: examId }],
+      },
+    })
+
+    if (!exam) {
+      throw new NotFoundError('Simulado não encontrado')
+    }
+
+    const ongoingAttempt = await prisma.examAttempt.findFirst({
+      where: {
+        userId,
+        examId: exam.id,
+        finishedAt: null,
+      },
+    })
+
+    let attempt = ongoingAttempt
+
+    if (!attempt) {
+      attempt = await prisma.examAttempt.create({
+        data: {
+          examId: exam.id,
+          userId,
+          startedAt: new Date(),
+        },
+      })
+    }
+
+    const questions = await prisma.examQuestion.findMany({
+      where: { examId: exam.id },
+      include: {
+        alternatives: {
+          select: { id: true, text: true },
+        },
+      },
+      orderBy: { orderNumber: 'asc' },
+    })
+
+    return {
+      attemptId: attempt.id,
+      examId: exam.id,
+      title: exam.title,
+      timeLimit: exam.timeLimit,
+      startedAt: attempt.startedAt.toISOString(),
+      questions: questions.map((q) => ({
+        id: q.id,
+        statement: q.statement,
+        imageUrl: q.imageUrl,
+        imageWidth: q.imageWidth,
+        imageHeight: q.imageHeight,
+        orderNumber: q.orderNumber,
+        points: q.points,
+        type: q.type,
+        subject: q.subject,
+        alternatives: q.alternatives,
+      })),
+    }
+  }
+
+  async submitExam(userId: string, data: ExamSubmitRequest): Promise<ExamSubmitResponse> {
+    const attempt = await prisma.examAttempt.findUnique({
+      where: { id: data.attemptId },
+      include: {
+        exam: {
+          include: { questions: { include: { alternatives: true } } },
+        },
+      },
+    })
+
+    if (!attempt) {
+      throw new NotFoundError('Tentativa não encontrada')
+    }
+
+    if (attempt.userId !== userId) {
+      throw new ForbiddenError('Esta tentativa não pertence a você')
+    }
+
+    if (attempt.finishedAt) {
+      throw new ForbiddenError('Esta tentativa já foi finalizada')
+    }
+
+    const questionMap = new Map(attempt.exam.questions.map((q) => [q.id, q]))
+
+    let score = 0
+    let correctAnswers = 0
+    const totalQuestions = attempt.exam.questions.length
+
+    const answerRecords: {
+      attemptId: string
+      questionId: string
+      alternativeId: string | null
+      essayAnswer: string | null
+      isCorrect: boolean
+    }[] = []
+
+    for (const answer of data.answers) {
+      const question = questionMap.get(answer.questionId)
+      if (!question) continue
+
+      let isCorrect = false
+
+      if (question.type === 'MULTIPLE_CHOICE' && answer.alternativeId) {
+        const correctAlternative = question.alternatives.find((a) => a.isCorrect)
+        isCorrect = correctAlternative?.id === answer.alternativeId
+      }
+
+      if (isCorrect) {
+        score += question.points
+        correctAnswers++
+      }
+
+      answerRecords.push({
+        attemptId: attempt.id,
+        questionId: answer.questionId,
+        alternativeId: answer.alternativeId ?? null,
+        essayAnswer: answer.essayAnswer ?? null,
+        isCorrect,
+      })
+    }
+
+    await prisma.examAnswer.createMany({ data: answerRecords })
+
+    const totalPoints = attempt.exam.questions.reduce((sum, q) => sum + q.points, 0)
+    const finalScore = totalPoints > 0 ? Math.round((score / totalPoints) * 100) : 0
+    const finishedAt = new Date()
+
+    await prisma.examAttempt.update({
+      where: { id: attempt.id },
+      data: {
+        score: finalScore,
+        correctAnswers,
+        totalQuestions,
+        finishedAt,
+      },
+    })
+
+    return {
+      attemptId: attempt.id,
+      score: finalScore,
+      correctAnswers,
+      totalQuestions,
+      percentage: finalScore,
+      finishedAt: finishedAt.toISOString(),
+    }
   }
 
   async getSubjectStats(userId: string): Promise<SubjectStat[]> {
