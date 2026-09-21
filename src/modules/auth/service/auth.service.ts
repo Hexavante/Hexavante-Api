@@ -40,9 +40,10 @@ export class AuthService {
     const trusted = await security.isDeviceTrusted(user.id, fingerprint);
 
     // E-mail não confirmado, dispositivo novo ou 2FA: exige código por e-mail
+    const skipDevice = process.env.SKIP_DEVICE_VERIFICATION === 'true';
     const reason = !user.emailVerified
       ? ("EMAIL_VERIFY" as const)
-      : !trusted
+      : !trusted && !skipDevice
         ? ("DEVICE" as const)
         : user.twoFactorEnabled
           ? ("TWO_FACTOR" as const)
