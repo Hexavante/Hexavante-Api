@@ -16,6 +16,10 @@ export async function authRoutes(fastify: FastifyInstance) {
         timeWindow: 60 * 1000,
       },
     },
+    schema: {
+      summary: "Login com e-mail e senha",
+      tags: ["Auth"],
+    },
   }, (request, reply) => authController.login(request, reply));
 
   fastify.post('/api/v1/auth/register', {
@@ -25,13 +29,33 @@ export async function authRoutes(fastify: FastifyInstance) {
         timeWindow: 60 * 1000,
       },
     },
+    schema: {
+      summary: "Registrar nova conta",
+      tags: ["Auth"],
+    },
   }, (request, reply) => authController.register(request, reply));
 
-  fastify.post('/api/v1/auth/logout', (request, reply) => authController.logout(request, reply));
+  fastify.post('/api/v1/auth/logout', {
+    schema: {
+      summary: "Encerrar sessão",
+      tags: ["Auth"],
+    },
+  }, (request, reply) => authController.logout(request, reply));
 
-  fastify.get('/api/v1/auth/session', (request, reply) => authController.session(request, reply));
+  fastify.get('/api/v1/auth/session', {
+    schema: {
+      summary: "Obter sessão atual",
+      tags: ["Auth"],
+    },
+  }, (request, reply) => authController.session(request, reply));
 
-  fastify.get('/api/v1/auth/oauth/success', async (request, reply) => {
+  fastify.get('/api/v1/auth/oauth/success', {
+    schema: {
+      summary: "Página de sucesso OAuth (popup)",
+      tags: ["Auth"],
+      hide: true,
+    },
+  }, async (request, reply) => {
     reply.type('text/html').send(`
       <!DOCTYPE html>
       <html>

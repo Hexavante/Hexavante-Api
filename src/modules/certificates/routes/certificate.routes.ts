@@ -14,19 +14,19 @@ export async function certificateRoutes(fastify: FastifyInstance) {
 
   fastify.get(
     "/api/v1/certificates",
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate], schema: { summary: "Meus certificados", tags: ["Certificates"], security: [{ session: [] }] } },
     asyncHandler(controller.getUserCertificates.bind(controller)),
   );
 
   fastify.post(
     "/api/v1/certificates",
-    { preHandler: [authenticate, validateBody(issueCertificateSchema)] },
+    { preHandler: [authenticate, validateBody(issueCertificateSchema)], schema: { summary: "Emitir certificado", tags: ["Certificates"], security: [{ session: [] }] } },
     asyncHandler(controller.issueCertificate.bind(controller)),
   );
 
   fastify.get(
     "/api/v1/certificates/verify/:code",
-    { preHandler: [validateParams(verifyCertificateSchema)] },
+    { preHandler: [validateParams(verifyCertificateSchema)], schema: { summary: "Verificar certificado", tags: ["Certificates"] } },
     asyncHandler(controller.verifyCertificate.bind(controller)),
   );
 }

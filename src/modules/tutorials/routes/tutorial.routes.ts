@@ -9,16 +9,19 @@ export async function tutorialRoutes(fastify: FastifyInstance) {
 
   fastify.get(
     "/api/v1/tutorials",
+    { schema: { summary: "Listar tutoriais", tags: ["Tutorials"] } },
     asyncHandler(tutorialController.list.bind(tutorialController)),
   );
 
   fastify.get(
     "/api/v1/tutorials/:id",
+    { schema: { summary: "Detalhes do tutorial", tags: ["Tutorials"] } },
     asyncHandler(tutorialController.getById.bind(tutorialController)),
   );
 
   fastify.post(
     "/api/v1/tutorials/:id/view",
+    { schema: { summary: "Registrar visualização", tags: ["Tutorials"] } },
     asyncHandler(tutorialController.incrementViews.bind(tutorialController)),
   );
 }

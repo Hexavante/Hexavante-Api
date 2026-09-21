@@ -9,6 +9,7 @@ export async function platformRoutes(fastify: FastifyInstance) {
 
   fastify.get(
     "/api/v1/platform/stats",
+    { schema: { summary: "Estatísticas da plataforma", tags: ["Platform"] } },
     asyncHandler(platformController.getStats.bind(platformController)),
   );
 }

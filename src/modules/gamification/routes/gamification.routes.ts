@@ -12,6 +12,7 @@ export async function gamificationRoutes(fastify: FastifyInstance) {
 
   fastify.get(
     "/api/v1/rankings",
+    { schema: { summary: 'Leaderboard', tags: ['Gamification'] } },
     async (request, reply) => {
       const query = request.query as { page?: string; limit?: string };
       const page = Math.max(1, Number(query.page) || 1);
@@ -24,7 +25,7 @@ export async function gamificationRoutes(fastify: FastifyInstance) {
 
   fastify.get(
     "/api/v1/rankings/me",
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate], schema: { summary: 'Minha posição', tags: ['Gamification'], security: [{ session: [] }] } },
     asyncHandler(async (request, reply) => {
       const userId = request.user!.id;
       const result = await rankingService.getUserPosition(userId);
@@ -34,7 +35,7 @@ export async function gamificationRoutes(fastify: FastifyInstance) {
 
   fastify.get(
     "/api/v1/users/me/xp-profile",
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate], schema: { summary: 'Perfil de XP', tags: ['Gamification'], security: [{ session: [] }] } },
     asyncHandler(async (request, reply) => {
       const userId = request.user!.id;
       const profile = await xpService.getProfile(userId);
@@ -44,6 +45,7 @@ export async function gamificationRoutes(fastify: FastifyInstance) {
 
   fastify.get(
     "/api/v1/users/:id/xp",
+    { schema: { summary: 'Histórico de XP', tags: ['Gamification'] } },
     asyncHandler(async (request, reply) => {
       const { id } = request.params as { id: string };
       const query = request.query as { page?: string; limit?: string };
@@ -57,6 +59,7 @@ export async function gamificationRoutes(fastify: FastifyInstance) {
 
   fastify.get(
     "/api/v1/achievements",
+    { schema: { summary: 'Conquistas disponíveis', tags: ['Gamification'] } },
     async (_request, reply) => {
       reply.send({ achievements: getAllAchievements() });
     },
@@ -64,7 +67,7 @@ export async function gamificationRoutes(fastify: FastifyInstance) {
 
   fastify.get(
     "/api/v1/users/me/achievements",
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate], schema: { summary: 'Minhas conquistas', tags: ['Gamification'], security: [{ session: [] }] } },
     asyncHandler(async (request, reply) => {
       const userId = request.user!.id;
       const achievements = await xpService.getUserAchievements(userId);

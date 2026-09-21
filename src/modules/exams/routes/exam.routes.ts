@@ -11,37 +11,37 @@ export async function examRoutes(fastify: FastifyInstance) {
 
   fastify.get(
     '/api/v1/exams',
-    { preHandler: [optionalAuth] },
+    { preHandler: [optionalAuth], schema: { summary: 'Listar provas', tags: ['Exams'] } },
     asyncHandler(examController.list.bind(examController)),
   )
 
   fastify.get(
     '/api/v1/exams/history',
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate], schema: { summary: 'Histórico de provas', tags: ['Exams'], security: [{ session: [] }] } },
     asyncHandler(examController.getHistory.bind(examController)),
   )
 
   fastify.get(
     '/api/v1/exams/stats',
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate], schema: { summary: 'Estatísticas de provas', tags: ['Exams'], security: [{ session: [] }] } },
     asyncHandler(examController.getStats.bind(examController)),
   )
 
   fastify.get(
     '/api/v1/exams/evolution',
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate], schema: { summary: 'Evolução de notas', tags: ['Exams'], security: [{ session: [] }] } },
     asyncHandler(examController.getEvolution.bind(examController)),
   )
 
   fastify.get(
     '/api/v1/exams/subject-stats',
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate], schema: { summary: 'Estatísticas por matéria', tags: ['Exams'], security: [{ session: [] }] } },
     asyncHandler(examController.getSubjectStats.bind(examController)),
   )
 
   fastify.get(
     '/api/v1/exams/:id',
-    { preHandler: [optionalAuth] },
+    { preHandler: [optionalAuth], schema: { summary: 'Detalhes da prova', tags: ['Exams'] } },
     asyncHandler(examController.getById.bind(examController)),
   )
 }

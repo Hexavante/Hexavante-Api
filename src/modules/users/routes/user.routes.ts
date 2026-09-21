@@ -13,25 +13,52 @@ export async function userRoutes(fastify: FastifyInstance) {
 
   fastify.get(
     "/api/v1/users/me",
-    { preHandler: [authenticate] },
+    {
+      preHandler: [authenticate],
+      schema: {
+        summary: "Obter meu perfil completo",
+        tags: ["Users"],
+        security: [{ session: [] }],
+      },
+    },
     asyncHandler(userController.me.bind(userController)),
   );
 
   fastify.get(
     "/api/v1/users/:username",
-    { preHandler: [optionalAuth] },
+    {
+      preHandler: [optionalAuth],
+      schema: {
+        summary: "Perfil público de um usuário",
+        tags: ["Users"],
+      },
+    },
     asyncHandler(userController.getPublicProfile.bind(userController)),
   );
 
   fastify.patch(
     "/api/v1/users/me",
-    { preHandler: [authenticate] },
+    {
+      preHandler: [authenticate],
+      schema: {
+        summary: "Atualizar meu perfil",
+        tags: ["Users"],
+        security: [{ session: [] }],
+      },
+    },
     asyncHandler(userController.updateMe.bind(userController)),
   );
 
   fastify.delete(
     "/api/v1/users/me",
-    { preHandler: [authenticate] },
+    {
+      preHandler: [authenticate],
+      schema: {
+        summary: "Deletar minha conta",
+        tags: ["Users"],
+        security: [{ session: [] }],
+      },
+    },
     asyncHandler(userController.deleteMe.bind(userController)),
   );
 }

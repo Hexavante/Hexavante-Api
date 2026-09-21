@@ -14,19 +14,19 @@ export async function notificationRoutes(fastify: FastifyInstance) {
 
   fastify.get(
     "/api/v1/notifications",
-    { preHandler: [authenticate, validateQuery(listNotificationsSchema)] },
+    { preHandler: [authenticate, validateQuery(listNotificationsSchema)], schema: { summary: "Listar notificações", tags: ["Notifications"], security: [{ session: [] }] } },
     asyncHandler(controller.getUserNotifications.bind(controller)),
   );
 
   fastify.patch(
     "/api/v1/notifications/:id/read",
-    { preHandler: [authenticate, validateParams(markReadSchema)] },
+    { preHandler: [authenticate, validateParams(markReadSchema)], schema: { summary: "Marcar como lida", tags: ["Notifications"], security: [{ session: [] }] } },
     asyncHandler(controller.markAsRead.bind(controller)),
   );
 
   fastify.patch(
     "/api/v1/notifications/read-all",
-    { preHandler: [authenticate, validateBody(markAllReadSchema)] },
+    { preHandler: [authenticate, validateBody(markAllReadSchema)], schema: { summary: "Marcar todas como lidas", tags: ["Notifications"], security: [{ session: [] }] } },
     asyncHandler(controller.markAllAsRead.bind(controller)),
   );
 }

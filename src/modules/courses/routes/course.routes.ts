@@ -21,72 +21,154 @@ export async function courseRoutes(fastify: FastifyInstance) {
 
   fastify.get(
     "/api/v1/courses",
-    { preHandler: [optionalAuth] },
+    {
+      preHandler: [optionalAuth],
+      schema: {
+        summary: "Listar cursos",
+        tags: ["Courses"],
+      },
+    },
     asyncHandler(courseController.list.bind(courseController)),
   );
 
   fastify.get(
     "/api/v1/courses/:id",
+    {
+      schema: {
+        summary: "Detalhes do curso",
+        tags: ["Courses"],
+      },
+    },
     asyncHandler(courseController.getById.bind(courseController)),
   );
 
   fastify.post(
     "/api/v1/courses",
-    { preHandler: [authenticate, permission("course.create")] },
+    {
+      preHandler: [authenticate, permission("course.create")],
+      schema: {
+        summary: "Criar curso",
+        tags: ["Courses"],
+        security: [{ session: [] }],
+      },
+    },
     asyncHandler(courseController.create.bind(courseController)),
   );
 
   fastify.patch(
     "/api/v1/courses/:id",
-    { preHandler: [authenticate, permission("course.update")] },
+    {
+      preHandler: [authenticate, permission("course.update")],
+      schema: {
+        summary: "Atualizar curso",
+        tags: ["Courses"],
+        security: [{ session: [] }],
+      },
+    },
     asyncHandler(courseController.update.bind(courseController)),
   );
 
   fastify.delete(
     "/api/v1/courses/:id",
-    { preHandler: [authenticate, permission("course.delete")] },
+    {
+      preHandler: [authenticate, permission("course.delete")],
+      schema: {
+        summary: "Deletar curso",
+        tags: ["Courses"],
+        security: [{ session: [] }],
+      },
+    },
     asyncHandler(courseController.delete.bind(courseController)),
   );
 
   fastify.post(
     "/api/v1/courses/:id/enroll",
-    { preHandler: [authenticate] },
+    {
+      preHandler: [authenticate],
+      schema: {
+        summary: "Matricular-se",
+        tags: ["Courses"],
+        security: [{ session: [] }],
+      },
+    },
     asyncHandler(courseController.enroll.bind(courseController)),
   );
 
   fastify.get(
     "/api/v1/courses/:id/progress",
-    { preHandler: [authenticate] },
+    {
+      preHandler: [authenticate],
+      schema: {
+        summary: "Progresso do curso",
+        tags: ["Courses"],
+        security: [{ session: [] }],
+      },
+    },
     asyncHandler(courseController.getProgress.bind(courseController)),
   );
 
   fastify.get(
     "/api/v1/courses/:courseId/lessons/:lessonId",
-    { preHandler: [authenticate] },
+    {
+      preHandler: [authenticate],
+      schema: {
+        summary: "Conteúdo da aula",
+        tags: ["Courses"],
+        security: [{ session: [] }],
+      },
+    },
     asyncHandler(learningController.getLesson.bind(learningController)),
   );
 
   fastify.post(
     "/api/v1/courses/:courseId/lessons/:lessonId/complete",
-    { preHandler: [authenticate] },
+    {
+      preHandler: [authenticate],
+      schema: {
+        summary: "Concluir aula",
+        tags: ["Courses"],
+        security: [{ session: [] }],
+      },
+    },
     asyncHandler(learningController.completeLesson.bind(learningController)),
   );
 
   fastify.post(
     "/api/v1/courses/:courseId/lessons/:lessonId/favorite",
-    { preHandler: [authenticate] },
+    {
+      preHandler: [authenticate],
+      schema: {
+        summary: "Favoritar aula",
+        tags: ["Courses"],
+        security: [{ session: [] }],
+      },
+    },
     asyncHandler(learningController.toggleFavorite.bind(learningController)),
   );
 
   fastify.get(
     "/api/v1/courses/:courseId/lessons/:lessonId/note",
-    { preHandler: [authenticate] },
+    {
+      preHandler: [authenticate],
+      schema: {
+        summary: "Obter nota da aula",
+        tags: ["Courses"],
+        security: [{ session: [] }],
+      },
+    },
     asyncHandler(learningController.getNote.bind(learningController)),
   );
 
   fastify.put(
     "/api/v1/courses/:courseId/lessons/:lessonId/note",
-    { preHandler: [authenticate] },
+    {
+      preHandler: [authenticate],
+      schema: {
+        summary: "Salvar nota da aula",
+        tags: ["Courses"],
+        security: [{ session: [] }],
+      },
+    },
     asyncHandler(learningController.saveNote.bind(learningController)),
   );
 }

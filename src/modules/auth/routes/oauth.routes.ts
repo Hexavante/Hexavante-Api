@@ -5,7 +5,13 @@ import { createSession } from '../../../lib/session';
 
 export async function oauthRoutes(fastify: FastifyInstance) {
   // GET /oauth/:provider — redireciona pro consent do provider
-  fastify.get('/oauth/:provider', async (request, reply) => {
+  fastify.get('/oauth/:provider', {
+    schema: {
+      summary: "Iniciar fluxo OAuth",
+      tags: ["Auth"],
+      description: "Redireciona o usuário para a tela de consentimento do provider (Google, GitHub, etc).",
+    },
+  }, async (request, reply) => {
     const { provider } = request.params as { provider: string };
     const { callbackURL: rawCallbackURL } = request.query as { callbackURL?: string };
 
@@ -75,7 +81,14 @@ export async function oauthRoutes(fastify: FastifyInstance) {
   });
 
   // GET /oauth/callback/:provider — recebe code+state do provider
-  fastify.get('/oauth/callback/:provider', async (request, reply) => {
+  fastify.get('/oauth/callback/:provider', {
+    schema: {
+      summary: "Callback OAuth",
+      tags: ["Auth"],
+      description: "Recebe code+state do provider, troca por token, cria sessão e redireciona.",
+      hide: true,
+    },
+  }, async (request, reply) => {
     const { provider } = request.params as { provider: string };
     const { code, state, error } = request.query as {
       code?: string;

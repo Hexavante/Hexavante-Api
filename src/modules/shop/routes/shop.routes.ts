@@ -10,25 +10,25 @@ export async function shopRoutes(fastify: FastifyInstance) {
 
   fastify.get(
     '/api/v1/shop',
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate], schema: { summary: 'Loja', tags: ['Shop'], security: [{ session: [] }] } },
     asyncHandler(shopController.getShopState.bind(shopController)),
   )
 
   fastify.post(
     '/api/v1/shop/purchase',
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate], schema: { summary: 'Comprar item', tags: ['Shop'], security: [{ session: [] }] } },
     asyncHandler(shopController.purchaseItem.bind(shopController)),
   )
 
   fastify.post(
     '/api/v1/shop/equip',
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate], schema: { summary: 'Equipar/desquipar item', tags: ['Shop'], security: [{ session: [] }] } },
     asyncHandler(shopController.equipItem.bind(shopController)),
   )
 
   fastify.get(
     '/api/v1/inventory',
-    { preHandler: [authenticate] },
+    { preHandler: [authenticate], schema: { summary: 'Inventário', tags: ['Shop'], security: [{ session: [] }] } },
     asyncHandler(shopController.getInventory.bind(shopController)),
   )
 }

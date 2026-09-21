@@ -49,6 +49,9 @@ await fastify.register(cookie, {
   parseOptions: {},
 });
 
+const DOCS_USER = process.env.SWAGGER_USER || 'hexavante';
+const DOCS_PASS = process.env.SWAGGER_PASS || 'swagger2026';
+
 await fastify.register(swagger, {
   openapi: {
     info: {
@@ -58,22 +61,54 @@ await fastify.register(swagger, {
     },
     servers: [
       {
+        url: `https://api.hexavante.com.br`,
+        description: "Produção",
+      },
+      {
         url: `http://localhost:${process.env.PORT || 3045}`,
-        description: "Development server",
+        description: "Desenvolvimento",
       },
     ],
+    components: {
+      securitySchemes: {
+        session: {
+          type: "apiKey",
+          in: "cookie",
+          name: "__Secure-hexavante.session_token",
+          description: "Sessão autenticada via cookie (obtida em POST /api/v1/auth/login)",
+        },
+      },
+    },
   },
 });
 
-if (process.env.NODE_ENV !== 'production') {
-  await fastify.register(swaggerUi, {
-    routePrefix: "/docs",
-    uiConfig: {
-      docExpansion: "list",
-      deepLinking: false,
+await fastify.register(swaggerUi, {
+  routePrefix: "/docs",
+  uiConfig: {
+    docExpansion: "list",
+    deepLinking: true,
+    persistAuthorization: true,
+  },
+  uiHooks: {
+    onRequest: (request, reply, done) => {
+      const auth = request.headers.authorization;
+      if (!auth || !auth.startsWith("Basic ")) {
+        reply.header("WWW-Authenticate", 'Basic realm="Hexavante API Docs"');
+        reply.code(401).send({ error: "Autenticação necessária" });
+        done(new Error("Unauthorized"));
+        return;
+      }
+      const decoded = Buffer.from(auth.slice(6), "base64").toString();
+      const [user, pass] = decoded.split(":");
+      if (user === DOCS_USER && pass === DOCS_PASS) {
+        done();
+      } else {
+        reply.code(401).send({ error: "Credenciais inválidas" });
+        done(new Error("Unauthorized"));
+      }
     },
-  });
-}
+  },
+});
 
 fastify.addSchema({
   $id: "HealthCheck",
