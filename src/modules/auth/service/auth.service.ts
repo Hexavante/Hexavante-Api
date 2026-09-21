@@ -121,6 +121,22 @@ export class AuthService {
       },
     });
 
+    // Presente de boas-vindas: itens gratuitos (custo 0), incluindo o tema padrão
+    const freeItems = await prisma.storeItem.findMany({
+      where: { cost: 0, isActive: true },
+      select: { id: true },
+    });
+    if (freeItems.length > 0) {
+      await prisma.userInventory.createMany({
+        data: freeItems.map((item) => ({
+          userId: created.id,
+          storeItemId: item.id,
+          isEquipped: false,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
     return created;
   }
 
