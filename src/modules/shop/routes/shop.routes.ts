@@ -31,4 +31,10 @@ export async function shopRoutes(fastify: FastifyInstance) {
     { preHandler: [authenticate], schema: { summary: 'Inventário', tags: ['Shop'], security: [{ session: [] }] } },
     asyncHandler(shopController.getInventory.bind(shopController)),
   )
+
+  fastify.post(
+    '/api/v1/shop/premium/trial',
+    { preHandler: [authenticate], schema: { summary: 'Ativar trial Premium (30 dias)', tags: ['Shop'], security: [{ session: [] }] } },
+    asyncHandler(shopController.activatePremiumTrial.bind(shopController)),
+  )
 }

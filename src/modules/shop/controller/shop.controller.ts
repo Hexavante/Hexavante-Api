@@ -33,4 +33,10 @@ export class ShopController {
     const inventory = await this.shopService.getUserInventory(userId)
     reply.send({ items: inventory })
   }
+
+  async activatePremiumTrial(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+    const userId = request.user!.id
+    const result = await this.shopService.activatePremiumTrial(userId)
+    reply.send(result)
+  }
 }

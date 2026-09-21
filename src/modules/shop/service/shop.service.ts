@@ -200,4 +200,21 @@ export class ShopService {
       item: entry.storeItem,
     }))
   }
+
+  // Trial Premium de 30 dias (mesma regra do web: activatePremiumTrial)
+  async activatePremiumTrial(userId: string): Promise<{ premium: boolean; premiumExpiresAt: string | null }> {
+    const expiresAt = new Date()
+    expiresAt.setDate(expiresAt.getDate() + 30)
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { isPremium: true, premiumExpiresAt: expiresAt },
+      select: { isPremium: true, premiumExpiresAt: true },
+    })
+
+    return {
+      premium: user.isPremium,
+      premiumExpiresAt: user.premiumExpiresAt?.toISOString() ?? null,
+    }
+  }
 }
