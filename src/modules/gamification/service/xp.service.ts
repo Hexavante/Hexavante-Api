@@ -1,7 +1,28 @@
 import type { IGamificationRepository } from "../repository/gamification.repository";
+import { prisma } from "../../../config/prisma";
 import { buildPagination } from "../../../lib/serializers/base";
 import { NotFoundError } from "../../../lib/errors/AppError";
 import type { RankingLeague, XpSource } from "@prisma/client";
+
+function countConsecutiveDays(dates: Date[]): number {
+  if (dates.length === 0) return 0;
+  const uniqueDays = [...new Set(dates.map((d) => d.toISOString().slice(0, 10)))].sort().reverse();
+  let streak = 1;
+  const today = new Date().toISOString().slice(0, 10);
+  if (uniqueDays[0] !== today) {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (uniqueDays[0] !== yesterday.toISOString().slice(0, 10)) return 0;
+  }
+  for (let i = 1; i < uniqueDays.length; i++) {
+    const prev = new Date(uniqueDays[i - 1]);
+    const curr = new Date(uniqueDays[i]);
+    const diff = (prev.getTime() - curr.getTime()) / (1000 * 60 * 60 * 24);
+    if (diff === 1) streak++;
+    else break;
+  }
+  return streak;
+}
 
 const ACHIEVEMENTS = [
   { key: "first_lesson", name: "Primeira Aula", description: "Complete sua primeira aula" },
@@ -101,6 +122,13 @@ export class XpService {
 
   async getProfile(userId: string) {
     const userXp = await this.gamificationRepository.getOrCreateUserXp(userId);
+    const recentActivity = await prisma.xpTransaction.findMany({
+      where: { userId },
+      select: { createdAt: true },
+      orderBy: { createdAt: "desc" },
+      take: 90,
+    });
+    const dates = recentActivity.map((t) => t.createdAt);
     return {
       level: userXp.level,
       currentXp: userXp.currentXp,
@@ -108,6 +136,8 @@ export class XpService {
       league: userXp.league,
       xpToNextLevel: xpRequiredForLevel(userXp.level),
       progressPercent: xpProgressPercent(userXp.level, userXp.currentXp),
+      streakDays: countConsecutiveDays(dates),
+      activeDays: new Set(dates.map((d) => d.toISOString().slice(0, 10))).size,
     };
   }
 

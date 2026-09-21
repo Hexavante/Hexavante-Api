@@ -11,6 +11,16 @@ export const resendDeviceCodeSchema = z.object({
   verificationId: z.string().min(1, "Identificador inválido"),
 });
 
+export const forgotPasswordSchema = z.object({
+  email: z.email("E-mail inválido").transform((v) => v.trim().toLowerCase()),
+});
+
+export const resetPasswordSchema = z.object({
+  verificationId: z.string().min(1, "Identificador inválido"),
+  code: z.string().regex(/^\d{6}$/, "Código deve ter 6 dígitos"),
+  password: z.string().min(8, "Senha deve ter no mínimo 8 caracteres"),
+});
+
 export const presenceSchema = z.object({
   status: z.enum(["ONLINE", "AWAY", "STUDYING", "DND", "INVISIBLE"]),
 });

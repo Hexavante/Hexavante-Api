@@ -9,6 +9,28 @@ export async function securityRoutes(fastify: FastifyInstance) {
   const securityController = new SecurityController(securityService);
 
   fastify.post(
+    "/api/v1/auth/forgot-password",
+    {
+      schema: {
+        summary: "Solicitar código de redefinição de senha",
+        tags: ["Security"],
+      },
+    },
+    asyncHandler(securityController.forgotPassword.bind(securityController)),
+  );
+
+  fastify.post(
+    "/api/v1/auth/reset-password",
+    {
+      schema: {
+        summary: "Redefinir senha com código",
+        tags: ["Security"],
+      },
+    },
+    asyncHandler(securityController.resetPassword.bind(securityController)),
+  );
+
+  fastify.post(
     "/api/v1/auth/verify-device",
     {
       schema: {

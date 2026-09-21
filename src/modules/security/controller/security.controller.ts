@@ -3,6 +3,8 @@ import { SecurityService, fingerprintDevice } from "../service/security.service"
 import {
   verifyDeviceSchema,
   resendDeviceCodeSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
   presenceSchema,
   heartbeatSchema,
 } from "../schemas/security.schemas";
@@ -33,6 +35,20 @@ export class SecurityController {
     const { userId } = await this.securityService.peekVerificationOwner(body.verificationId);
     const result = await this.securityService.resendCode(body.verificationId, userId);
     reply.send({ verificationId: result.verificationId });
+  });
+
+  forgotPassword = asyncHandler(async (request: FastifyRequest, reply: FastifyReply) => {
+    await validateBody(forgotPasswordSchema)(request, reply);
+    const body = request.body as { email: string };
+    const result = await this.securityService.requestPasswordReset(body.email);
+    reply.send({ ok: true, verificationId: result.verificationId });
+  });
+
+  resetPassword = asyncHandler(async (request: FastifyRequest, reply: FastifyReply) => {
+    await validateBody(resetPasswordSchema)(request, reply);
+    const body = request.body as { verificationId: string; code: string; password: string };
+    await this.securityService.resetPassword(body.verificationId, body.code, body.password);
+    reply.send({ ok: true });
   });
 
   listDevices = asyncHandler(async (request: FastifyRequest, reply: FastifyReply) => {

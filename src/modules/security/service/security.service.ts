@@ -1,6 +1,7 @@
 import { createHash, randomInt } from "crypto";
 import { prisma } from "../../../config/prisma";
 import { createSession } from "../../../lib/session";
+import { hashPassword } from "../../../lib/password";
 import { sendEmail, deviceCodeEmailHtml, emailVerifyHtml, twoFactorEmailHtml } from "../../../lib/email";
 import { AppError, NotFoundError, BadRequestError } from "../../../lib/errors/AppError";
 
@@ -93,7 +94,7 @@ export class SecurityService {
     userId: string;
     email: string;
     fingerprint?: string | null;
-    purpose: "DEVICE" | "TWO_FACTOR" | "EMAIL_VERIFY";
+    purpose: "DEVICE" | "TWO_FACTOR" | "EMAIL_VERIFY" | "PASSWORD_RESET";
     deviceName?: string;
   }  ): Promise<{ verificationId: string }> {
     // NOTA: códigos anteriores continuam válidos até expirar (10 min).
@@ -125,6 +126,14 @@ export class SecurityService {
         emailVerifyHtml(code),
         `Confirme seu e-mail na Hexavante com o código: ${code} (expira em 10 minutos)`,
         "email-verify",
+      );
+    } else if (input.purpose === "PASSWORD_RESET") {
+      await mailCode(
+        input.email,
+        "Redefinir senha — Hexavante",
+        emailVerifyHtml(code),
+        `Use este código para redefinir sua senha na Hexavante: ${code} (expira em 10 minutos). Se não foi você, ignore este e-mail.`,
+        "password-reset",
       );
     } else {
       await mailCode(
@@ -240,6 +249,36 @@ export class SecurityService {
       },
       session: { token: session.token, expiresAt: session.expiresAt },
     };
+  }
+
+  // ── Recuperação de senha ──────────────────────────────
+  // Anti-enumeração: retorna verificationId só se o e-mail existir.
+  async requestPasswordReset(email: string): Promise<{ verificationId: string | null }> {
+    const user = await prisma.user.findUnique({
+      where: { email: email.trim().toLowerCase() },
+      select: { id: true, email: true },
+    });
+    if (!user) return { verificationId: null };
+    const { verificationId } = await this.issueCode({
+      userId: user.id,
+      email: user.email,
+      purpose: "PASSWORD_RESET",
+    });
+    return { verificationId };
+  }
+
+  async resetPassword(verificationId: string, code: string, newPassword: string): Promise<void> {
+    const { userId, purpose } = await this.consumeCode(verificationId, code);
+    if (purpose !== "PASSWORD_RESET") {
+      throw new BadRequestError("Código inválido para redefinição de senha.");
+    }
+    const passwordHash = await hashPassword(newPassword);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+    // Invalida sessões existentes por segurança
+    await prisma.session.deleteMany({ where: { userId } });
   }
 
   async touchDevice(userId: string, fingerprint: string, userAgent?: string, ip?: string) {
