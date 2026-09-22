@@ -1,6 +1,6 @@
 <div align="center">
   <h1>Hexavante API</h1>
-  <p>Backend oficial da plataforma educacional Hexavante</p>
+  <p><strong>Backend oficial da plataforma educacional Hexavante</strong></p>
   <p>
     <img alt="Status" src="https://img.shields.io/badge/status-produção-green">
     <img alt="Node" src="https://img.shields.io/badge/node-22.x-green">
@@ -8,7 +8,13 @@
     <img alt="Prisma" src="https://img.shields.io/badge/prisma-6-2D3748">
   </p>
   <p>
-    <a href="#português">🇧🇷 Português</a> · <a href="#english">🇺🇸 English</a> · <a href="docs/visao-geral.md">Docs</a>
+    <a href="https://api.hexavante.com.br/docs">📚 Swagger</a> <em>(protegido — credenciais swagger)</em> · <a href="https://api.hexavante.com.br/api/v1/platform/stats">📊 Stats públicos</a>
+  </p>
+  <p>
+    <a href="#português">🇧🇷 Português</a> · <a href="#english">🇺🇸 English</a> · <a href="docs/visao-geral.md">📖 Docs</a>
+  </p>
+  <p>
+    ⚡ <a href="#endpoints-principais">Endpoints</a> · 🚀 <a href="#setup">Setup</a> · 🗄️ <a href="#banco-de-dados">Banco</a> · 🚢 <a href="#deploy">Deploy</a> · 📖 <a href="docs/visao-geral.md">Docs</a>
   </p>
 </div>
 
@@ -21,6 +27,7 @@
 ### Índice
 
 - [Sobre](#sobre)
+- [Quem consome](#quem-consome)
 - [Arquitetura](#arquitetura)
 - [Estrutura de pastas](#estrutura-de-pastas)
 - [Endpoints principais](#endpoints-principais)
@@ -31,10 +38,24 @@
 - [Deploy](#deploy)
 - [Solução de problemas](#solução-de-problemas)
 - [Como contribuir](#como-contribuir)
+- [Documentação técnica](#documentação-técnica)
 
 ### Sobre
 
 API REST em `api.hexavante.com.br` (porta 3045, container `hexavante-api`). Dona da autenticação, das regras de negócio e do schema de referência do banco compartilhado. Serve web, landing, desktop e mobile.
+
+### Quem consome
+
+| Cliente | Repositório | O que consome |
+|---|---|---|
+| 🌐 Web (`app.hexavante.com.br`) | [Hexavante-web](https://github.com/Hexavante/Hexavante-web) | Sessão/auth, catálogo, matrículas, gamificação |
+| 🏠 Landing (`hexavante.com.br`) | [Hexavante-landing](https://github.com/Hexavante/Hexavante-landing) | API pública: stats, catálogo |
+| 🛡️ Admin (`painel.hexavante.com.br`) | [Hexavante-admin](https://github.com/Hexavante/Hexavante-admin) | Moderação e ações auditadas |
+| 🖥️ Desktop (Electron) | [Hexavante-Desktop](https://github.com/Hexavante/Hexavante-Desktop) | Sessão/auth, cursos, provas, progresso |
+| 📱 Mobile (Expo) | [Hexavante-Mobile](https://github.com/Hexavante/Hexavante-Mobile) | Sessão/auth, cursos, provas, progresso |
+
+> [!IMPORTANT]
+> **Atenção ao 202**: `Response.ok` é `true` para 202 — clientes devem checar `status === 202` antes de `!res.ok`.
 
 ### Arquitetura
 
@@ -75,18 +96,59 @@ prisma/schema.prisma          # Espelho exato do banco (ver docs/der-logico.md)
 
 ### Endpoints principais
 
+> 🔎 Lista completa e interativa no [Swagger](https://api.hexavante.com.br/docs) *(protegido — credenciais swagger)*. Ping público: [`GET /api/v1/platform/stats`](https://api.hexavante.com.br/api/v1/platform/stats).
+
+#### 🔐 Auth
+
 | Método/rota | Auth | O quê |
 |---|---|---|
 | `POST /api/v1/auth/register` | — | Cadastro (valida 13+, unicidade) |
 | `POST /api/v1/auth/login` | — | Sessão ou `202 {requiresVerification, reason}` |
 | `POST /api/v1/auth/verify-device` | — | Confirma código → sessão + confia + verifica e-mail |
 | `GET /api/v1/auth/session` | Cookie | Sessão atual |
-| `GET /api/v1/courses`, `/exams`, `/tutorials` | Opcional | Listas públicas paginadas |
-| `GET /api/v1/platform/stats` | — | Stats com cache |
-| `GET /api/v1/rankings`, `/achievements` | Opcional | Leaderboard e conquistas |
-| `GET /api/v1/certificates/verify/:code` | — | Verificação pública |
 
-**Atenção ao 202**: `Response.ok` é `true` para 202 — clientes devem checar `status === 202` antes de `!res.ok`.
+#### 📚 Cursos, Provas e Tutoriais
+
+| Método/rota | Auth | O quê |
+|---|---|---|
+| `GET /api/v1/courses` | Opcional | Catálogo público paginado |
+| `GET /api/v1/exams` | Opcional | Provas/simulados públicos paginados |
+| `GET /api/v1/tutorials` | Opcional | Tutoriais públicos paginados (SQL read-only) |
+
+#### 🏆 Gamificação
+
+| Método/rota | Auth | O quê |
+|---|---|---|
+| `GET /api/v1/rankings` | Opcional | Leaderboard (fallback all-time) |
+| `GET /api/v1/achievements` | Opcional | Conquistas e XP |
+
+#### 🛒 Loja
+
+| Método/rota | Auth | O quê |
+|---|---|---|
+| Módulo `shop/` — ver Swagger | Cookie | Loja, inventário e compras |
+
+#### 🎓 Certificados
+
+| Método/rota | Auth | O quê |
+|---|---|---|
+| `GET /api/v1/certificates/verify/:code` | — | Verificação pública |
+| Módulo `certificates/` — ver Swagger | Cookie | Emissão e listagem |
+
+#### 💬 Social
+
+| Método/rota | Auth | O quê |
+|---|---|---|
+| Módulos `conversations/` + `live-rooms/` + `notifications/` — ver Swagger | Cookie | Mensagens diretas, salas (join/leave) e notificações |
+
+#### 📊 Plataforma
+
+| Método/rota | Auth | O quê |
+|---|---|---|
+| `GET /api/v1/platform/stats` | — | Stats com cache (60s) |
+
+> [!IMPORTANT]
+> **Atenção ao 202**: `Response.ok` é `true` para 202 — clientes devem checar `status === 202` antes de `!res.ok`.
 
 ### Setup
 
