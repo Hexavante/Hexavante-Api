@@ -90,4 +90,7 @@ export interface ExamSubmitResponse {
   totalQuestions: number
   percentage: number
   finishedAt: string
+  xpAwarded: number
+  coinsAwarded: number
+  dailyMultiplier: number
 }

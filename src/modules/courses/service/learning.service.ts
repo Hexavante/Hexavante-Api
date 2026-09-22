@@ -5,7 +5,6 @@ import {
   NotFoundError,
 } from "../../../lib/errors/AppError";
 import {
-  calculateLevel,
   estimateRemainingStudyMinutes,
   formatStudyDuration,
   getNextIncompleteLesson,
@@ -13,8 +12,13 @@ import {
 import type { LessonProgressContext, LessonCompleteResult } from "../types/learning.types";
 import type { CoinSource, XpSource } from "@prisma/client";
 
-const XP_REWARDS = { LESSON: 50, MODULE: 100, COURSE: 200 };
-const COIN_REWARDS = { LESSON: 5, MODULE: 10, COURSE: 20 };
+const XP_REWARDS = { LESSON: 10, MODULE: 25, COURSE: 100, EXAM: 20, EXAM_PASS_BONUS: 30 };
+const COIN_REWARDS = { EXAM_CORRECT: 5, LESSON: 3, MODULE: 10, COURSE: 25 };
+
+function applyBoosterAmount(base: number, booster: number): number {
+  if (base <= 0) return 0;
+  return Math.max(1, Math.round(base * booster));
+}
 
 interface FlatLesson {
   id: string;
@@ -215,23 +219,27 @@ export class LearningService {
     });
 
     let totalXpEarned = 0;
+    let totalCoinsEarned = 0;
+
+    const levelBefore = (await this.learningRepository.getUserXpProfile(userId)).level;
 
     if (!alreadyCompleted) {
+      const booster = await this.learningRepository.getBoosterMultiplier(userId);
       const lesson = allLessons[lessonIndex];
 
       totalXpEarned += await this.awardUnique(
         userId,
         "LESSON",
         lessonId,
-        XP_REWARDS.LESSON,
+        applyBoosterAmount(XP_REWARDS.LESSON, booster),
         `Aula concluída: ${lesson.title}`,
         "xp",
       );
-      await this.awardUnique(
+      totalCoinsEarned += await this.awardUnique(
         userId,
         "LESSON",
         lessonId,
-        COIN_REWARDS.LESSON,
+        applyBoosterAmount(COIN_REWARDS.LESSON, booster),
         `Aula concluída: ${lesson.title}`,
         "coin",
       );
@@ -246,15 +254,15 @@ export class LearningService {
             userId,
             "MODULE",
             lessonModule.id,
-            XP_REWARDS.MODULE,
+            applyBoosterAmount(XP_REWARDS.MODULE, booster),
             `Módulo concluído: ${lessonModule.title}`,
             "xp",
           );
-          await this.awardUnique(
+          totalCoinsEarned += await this.awardUnique(
             userId,
             "MODULE",
             lessonModule.id,
-            COIN_REWARDS.MODULE,
+            applyBoosterAmount(COIN_REWARDS.MODULE, booster),
             `Módulo concluído: ${lessonModule.title}`,
             "coin",
           );
@@ -266,24 +274,30 @@ export class LearningService {
           userId,
           "COURSE",
           courseId,
-          XP_REWARDS.COURSE,
+          applyBoosterAmount(XP_REWARDS.COURSE, booster),
           `Curso concluído: ${course.title}`,
           "xp",
         );
-        await this.awardUnique(
+        totalCoinsEarned += await this.awardUnique(
           userId,
           "COURSE",
           courseId,
-          COIN_REWARDS.COURSE,
+          applyBoosterAmount(COIN_REWARDS.COURSE, booster),
           `Curso concluído: ${course.title}`,
           "coin",
         );
       }
     }
 
-    const level = await this.computeLevel(userId);
+    const profile = await this.learningRepository.getUserXpProfile(userId);
 
-    return { progress, totalXpEarned, newLevels: [{ level, leveledUp: false }] };
+    return {
+      progress,
+      totalXpEarned,
+      xpAwarded: totalXpEarned,
+      coinsAwarded: totalCoinsEarned,
+      newLevels: [{ level: profile.level, leveledUp: profile.level > levelBefore }],
+    };
   }
 
   async toggleFavorite(userId: string, courseId: string, lessonId: string): Promise<boolean> {
@@ -325,8 +339,8 @@ export class LearningService {
   }
 
   private async computeLevel(userId: string): Promise<number> {
-    const totalXp = await this.learningRepository.getTotalXp(userId);
-    return calculateLevel(totalXp);
+    const profile = await this.learningRepository.getUserXpProfile(userId);
+    return profile.level;
   }
 
   private async awardUnique(
@@ -337,6 +351,7 @@ export class LearningService {
     description: string,
     kind: "xp" | "coin",
   ): Promise<number> {
+    if (amount <= 0) return 0;
     const has =
       kind === "xp"
         ? await this.learningRepository.hasXpAward(userId, source as XpSource, sourceId)

@@ -76,6 +76,8 @@ export interface ILearningRepository {
   awardXpAmount(userId: string, amount: number): Promise<void>;
   awardCoinsAmount(userId: string, amount: number): Promise<void>;
   getTotalXp(userId: string): Promise<number>;
+  getBoosterMultiplier(userId: string): Promise<number>;
+  getUserXpProfile(userId: string): Promise<{ level: number; currentXp: number; totalXp: number }>;
 }
 
 export class CourseLearningRepository implements ILearningRepository {
@@ -236,10 +238,20 @@ export class CourseLearningRepository implements ILearningRepository {
     description: string,
   ) {
     await prisma.xpTransaction.create({ data: { userId, amount, source, sourceId, description } });
-    await prisma.userXP.upsert({
+    let xp = await prisma.userXP.findUnique({ where: { userId } });
+    if (!xp) {
+      xp = await prisma.userXP.create({ data: { userId } });
+    }
+    let newLevel = Math.max(1, xp.level);
+    let newCurrentXp = xp.currentXp + amount;
+    const newTotalXp = xp.totalXp + amount;
+    while (newCurrentXp >= newLevel * 100) {
+      newCurrentXp -= newLevel * 100;
+      newLevel += 1;
+    }
+    await prisma.userXP.update({
       where: { userId },
-      create: { userId, currentXp: amount, totalXp: amount },
-      update: { currentXp: { increment: amount }, totalXp: { increment: amount } },
+      data: { level: newLevel, currentXp: newCurrentXp, totalXp: newTotalXp },
     });
   }
 
@@ -288,5 +300,27 @@ export class CourseLearningRepository implements ILearningRepository {
       select: { totalXp: true },
     });
     return xp?.totalXp ?? 0;
+  }
+
+  async getBoosterMultiplier(userId: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { boosterMultiplier: true, boosterExpiresAt: true },
+    });
+    if (!user?.boosterExpiresAt || user.boosterExpiresAt <= new Date()) return 1;
+    const m = user.boosterMultiplier ?? 1;
+    return m > 0 ? m : 1;
+  }
+
+  async getUserXpProfile(userId: string) {
+    let xp = await prisma.userXP.findUnique({ where: { userId } });
+    if (!xp) {
+      xp = await prisma.userXP.create({ data: { userId } });
+    }
+    return {
+      level: Math.max(1, xp.level),
+      currentXp: xp.currentXp,
+      totalXp: xp.totalXp,
+    };
   }
 }
