@@ -22,6 +22,8 @@ export class ShopService {
         coins: true,
         isPremium: true,
         premiumExpiresAt: true,
+        boosterMultiplier: true,
+        boosterExpiresAt: true,
       },
     })
 
@@ -42,6 +44,16 @@ export class ShopService {
         take: 20,
       }),
     ])
+
+    // Expira booster vencido (espelha clearExpiredBooster do web)
+    if (user.boosterExpiresAt && user.boosterExpiresAt < new Date()) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { boosterMultiplier: 1.0, boosterExpiresAt: null },
+      })
+      user.boosterMultiplier = 1.0
+      user.boosterExpiresAt = null
+    }
 
     const inventoryMap = new Map(userInventory.map((i) => [i.storeItemId, i]))
 
@@ -74,6 +86,11 @@ export class ShopService {
       item: entry.storeItem,
     }))
 
+    const boosterActive =
+      user.boosterExpiresAt != null &&
+      user.boosterExpiresAt > new Date() &&
+      user.boosterMultiplier > 1
+
     return {
       items,
       inventory,
@@ -81,6 +98,11 @@ export class ShopService {
       premium: user.isPremium,
       premiumExpiresAt: user.premiumExpiresAt?.toISOString() ?? null,
       coinHistory,
+      booster: {
+        active: boosterActive,
+        multiplier: boosterActive ? user.boosterMultiplier : 1,
+        expiresAt: boosterActive ? user.boosterExpiresAt!.toISOString() : null,
+      },
     }
   }
 
@@ -145,6 +167,42 @@ export class ShopService {
         })
       }
     })
+
+    // Efeitos pós-compra por categoria (espelha applyTemporaryPurchaseEffects do web)
+    const meta = (item.metadata ?? {}) as {
+      multiplier?: number
+      durationHours?: number
+      durationDays?: number
+      passType?: string
+    }
+    if (item.category === 'BOOSTER') {
+      const hours = Math.max(1, meta.durationHours ?? (meta.durationDays ? meta.durationDays * 24 : 24))
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          boosterMultiplier: meta.multiplier ?? 2,
+          boosterExpiresAt: new Date(Date.now() + hours * 60 * 60 * 1000),
+        },
+      })
+    }
+    if (item.category === 'PASS' && meta.passType === 'premium_exams') {
+      const days = Math.max(1, meta.durationDays ?? 7)
+      const current = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { isPremium: true, premiumExpiresAt: true },
+      })
+      const base =
+        current?.isPremium && current.premiumExpiresAt && current.premiumExpiresAt > new Date()
+          ? current.premiumExpiresAt.getTime()
+          : Date.now()
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          isPremium: true,
+          premiumExpiresAt: new Date(base + days * 24 * 60 * 60 * 1000),
+        },
+      })
+    }
   }
 
   async equipItem(userId: string, inventoryId: string): Promise<void> {
