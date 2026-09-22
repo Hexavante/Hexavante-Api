@@ -87,16 +87,21 @@ export class RankingService {
 
   async getUserPosition(userId: string) {
     const season = await this.gamificationRepository.getCurrentSeason();
+    const userXp = await this.gamificationRepository.getOrCreateUserXp(userId);
+
+    // Sem temporada ativa ou sem pontuação: 200 com rank nulo
+    // (404 quebrava dashboards que consomem este endpoint junto a outros).
     if (!season) {
-      throw new NotFoundError("Nenhuma temporada ativa no momento");
+      return {
+        rank: null,
+        seasonKey: null,
+        league: userXp.league,
+        totalXp: userXp.totalXp,
+        level: userXp.level,
+      };
     }
 
     const rank = await this.gamificationRepository.getUserRank(userId, season.seasonKey);
-    if (rank === null) {
-      throw new NotFoundError("Você ainda não possui pontuação nesta temporada");
-    }
-
-    const userXp = await this.gamificationRepository.getOrCreateUserXp(userId);
 
     return {
       rank,
