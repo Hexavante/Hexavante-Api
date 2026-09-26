@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { AuthController } from '../controller/auth.controller';
 import { AuthService } from '../service/auth.service';
 import { rateLimitPlugin } from '../../../plugins/rate-limit';
+import { asyncHandler } from '../../../lib/errors/errorHandler';
 const authService = new AuthService();
 const authController = new AuthController(authService);
 
@@ -19,7 +20,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       summary: "Login com e-mail e senha",
       tags: ["Auth"],
     },
-  }, (request, reply) => authController.login(request, reply));
+  }, asyncHandler(authController.login.bind(authController)));
 
   fastify.post('/api/v1/auth/register', {
     config: {
@@ -32,21 +33,21 @@ export async function authRoutes(fastify: FastifyInstance) {
       summary: "Registrar nova conta",
       tags: ["Auth"],
     },
-  }, (request, reply) => authController.register(request, reply));
+  }, asyncHandler(authController.register.bind(authController)));
 
   fastify.post('/api/v1/auth/logout', {
     schema: {
       summary: "Encerrar sessão",
       tags: ["Auth"],
     },
-  }, (request, reply) => authController.logout(request, reply));
+  }, asyncHandler(authController.logout.bind(authController)));
 
   fastify.get('/api/v1/auth/session', {
     schema: {
       summary: "Obter sessão atual",
       tags: ["Auth"],
     },
-  }, (request, reply) => authController.session(request, reply));
+  }, asyncHandler(authController.session.bind(authController)));
 
   fastify.get('/api/v1/auth/oauth/success', {
     schema: {

@@ -96,6 +96,8 @@ describe("UserRepository", () => {
         isVerified: false,
         isPremium: false,
         createdAt: new Date(),
+        lastSeenAt: null,
+        presence: "OFFLINE",
       };
 
       vi.mocked(prisma.user.findUnique).mockResolvedValue(
@@ -103,6 +105,9 @@ describe("UserRepository", () => {
       );
 
       const result = await userRepository.findPublicProfile("testuser");
+
+      // lastSeenAt é consumido internamente (effectivePresence) e não retornado
+      const { lastSeenAt: _dropped, ...expected } = mockPublicProfile;
 
       expect(prisma.user.findUnique).toHaveBeenCalledWith({
         where: { username: "testuser" },
@@ -116,9 +121,11 @@ describe("UserRepository", () => {
           isVerified: true,
           isPremium: true,
           createdAt: true,
+          lastSeenAt: true,
+          presence: true,
         },
       });
-      expect(result).toEqual(mockPublicProfile);
+      expect(result).toEqual(expected);
     });
 
     it("should return null when user not found", async () => {

@@ -148,21 +148,27 @@ export class CourseService {
       throw new NotFoundError("Curso não encontrado");
     }
 
-    const existing = await this.courseRepository.findEnrollment(userId, courseId);
+    const realId = course.id;
+    const existing = await this.courseRepository.findEnrollment(userId, realId);
     if (existing) {
       throw new ConflictError("Você já está matriculado neste curso");
     }
 
-    return this.courseRepository.createEnrollment(userId, courseId);
+    return this.courseRepository.createEnrollment(userId, realId);
   }
 
   async getProgress(userId: string, courseId: string): Promise<CourseProgress> {
-    const enrollment = await this.courseRepository.findEnrollment(userId, courseId);
+    const resolved = await this.courseRepository.findById(courseId);
+    if (!resolved) {
+      throw new NotFoundError("Curso não encontrado");
+    }
+    const realId = resolved.id;
+    const enrollment = await this.courseRepository.findEnrollment(userId, realId);
     if (!enrollment) {
       throw new BadRequestError("Você não está matriculado neste curso");
     }
 
-    const course = await this.courseRepository.findFullCourseById(courseId);
+    const course = await this.courseRepository.findFullCourseById(realId);
     if (!course) {
       throw new NotFoundError("Curso não encontrado");
     }

@@ -3,6 +3,7 @@ import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import cookie from "@fastify/cookie";
 import { logger } from "./config/logger";
+import { handleError } from "./lib/errors/errorHandler";
 import { closeRedisClient } from "./config/redis";
 import { authRoutes } from "./modules/auth/routes/auth.routes";
 import { impersonateRoutes } from "./modules/auth/routes/impersonate.routes";
@@ -209,20 +210,9 @@ fastify.get("/", async () => {
 });
 
 fastify.setErrorHandler((error, request, reply) => {
-  logger.error(
-    {
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      path: request.url,
-      method: request.method,
-    },
-    "Unhandled error",
-  );
-
-  reply.status(500).send({
-    success: false,
-    error: "Internal server error",
-  });
+  // handleError central já mapeia ZodError→400 e AppError→status correto.
+  if (reply.sent) return;
+  handleError(error, request, reply);
 });
 
 const gracefulShutdown = async (signal: string) => {
@@ -237,6 +227,11 @@ const gracefulShutdown = async (signal: string) => {
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
+export async function buildApp() {
+  await fastify.ready();
+  return fastify;
+}
+
 const start = async () => {
   try {
     const port = Number(process.env.PORT) || 3045;
@@ -250,4 +245,9 @@ const start = async () => {
   }
 };
 
-start();
+// Só escuta quando executado diretamente (tsx/node). Importado nos
+// testes de integração, apenas monta o app sem abrir porta.
+const entry = process.argv[1] ?? "";
+if (entry.endsWith("server.ts") || entry.endsWith("server.js")) {
+  start();
+}

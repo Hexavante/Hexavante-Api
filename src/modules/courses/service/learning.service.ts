@@ -69,7 +69,7 @@ export class LearningService {
       throw new NotFoundError("Curso não encontrado");
     }
 
-    const enrollment = await this.learningRepository.findEnrollment(userId, courseId);
+    const enrollment = await this.learningRepository.findEnrollment(userId, course.id);
     if (!enrollment) {
       throw new ForbiddenError("Você precisa estar matriculado no curso");
     }
@@ -180,8 +180,10 @@ export class LearningService {
     if (!course || course.status !== "APPROVED") {
       throw new NotFoundError("Curso não encontrado");
     }
+    // Normaliza slug → id real para contagens e sourceIds
+    courseId = course.id;
 
-    const enrollment = await this.learningRepository.findEnrollment(userId, courseId);
+    const enrollment = await this.learningRepository.findEnrollment(userId, course.id);
     if (!enrollment) {
       throw new BadRequestError("Você precisa estar matriculado no curso");
     }
@@ -308,7 +310,7 @@ export class LearningService {
     if (!course || course.status !== "APPROVED") {
       throw new NotFoundError("Curso não encontrado");
     }
-    const enrollment = await this.learningRepository.findEnrollment(userId, courseId);
+    const enrollment = await this.learningRepository.findEnrollment(userId, course.id);
     if (!enrollment) {
       throw new ForbiddenError("Você precisa estar matriculado no curso");
     }
@@ -335,7 +337,7 @@ export class LearningService {
     if (!course || course.status !== "APPROVED") {
       throw new NotFoundError("Curso não encontrado");
     }
-    const enrollment = await this.learningRepository.findEnrollment(userId, courseId);
+    const enrollment = await this.learningRepository.findEnrollment(userId, course.id);
     if (!enrollment) {
       throw new ForbiddenError("Você precisa estar matriculado no curso");
     }

@@ -192,10 +192,8 @@ export class CourseRepository implements ICourseRepository {
     return { courses, total };
   }
 
-  async findById(id: string) {
-    const course = await prisma.course.findUnique({
-      where: { id },
-      select: {
+  async findById(idOrSlug: string) {
+    const select = {
         id: true,
         title: true,
         slug: true,
@@ -218,8 +216,10 @@ export class CourseRepository implements ICourseRepository {
           select: moduleWithLessonsSelect,
           orderBy: { orderNumber: "asc" },
         },
-      },
-    });
+      } as const;
+    const course =
+      (await prisma.course.findUnique({ where: { id: idOrSlug }, select })) ??
+      (await prisma.course.findUnique({ where: { slug: idOrSlug }, select }));
 
     if (!course) return null;
 

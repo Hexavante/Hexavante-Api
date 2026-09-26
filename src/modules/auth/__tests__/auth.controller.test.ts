@@ -11,13 +11,14 @@ vi.mock("../service/auth.service", () => ({
     signOut: vi.fn(),
     getSession: vi.fn(),
     getUserById: vi.fn(),
-    getUserBasicInfo: vi.fn(),
   })),
 }));
 
 vi.mock("../../../lib/validation/validate", () => ({
   validateBody: vi.fn().mockReturnValue(async () => {}),
 }));
+
+const SESSION_COOKIE = "__Secure-hexavante.session_token=test-token";
 
 describe("AuthController", () => {
   let authController: AuthController;
@@ -34,75 +35,81 @@ describe("AuthController", () => {
       signOut: vi.fn(),
       getSession: vi.fn(),
       getUserById: vi.fn(),
-      getUserBasicInfo: vi.fn(),
     };
 
     authController = new AuthController(mockAuthService);
 
     mockRequest = {
       body: {},
-      headers: {
-        cookie: "hexavante.session_token=test-token",
-      },
+      headers: { cookie: SESSION_COOKIE, "user-agent": "vitest" },
+      ip: "127.0.0.1",
     };
 
     mockReply = {
       status: vi.fn().mockReturnThis(),
       send: vi.fn().mockReturnThis(),
+      setCookie: vi.fn().mockReturnThis(),
+      clearCookie: vi.fn().mockReturnThis(),
     };
   });
 
   describe("login", () => {
-    it("should return user data when login is successful", async () => {
-      const mockUser = {
-        id: "user-1",
-        name: "Test User",
-        email: "test@example.com",
-        username: "testuser",
-        roles: ["user"],
-      };
-
-      mockRequest.body = {
-        email: "test@example.com",
-        password: "password123",
-      };
-
-      mockAuthService.signIn.mockResolvedValue(mockUser);
+    it("should return user and session when login is successful", async () => {
+      mockRequest.body = { email: "test@example.com", password: "password123" };
+      mockAuthService.signIn.mockResolvedValue({
+        user: { id: "user-1", name: "Test User", email: "test@example.com" },
+        session: { token: "tok-1", expiresAt: "2026-01-01" },
+      });
 
       await authController.login(mockRequest, mockReply);
 
       expect(mockAuthService.signIn).toHaveBeenCalledWith(
         "test@example.com",
-        "password123"
+        "password123",
+        "127.0.0.1",
+        "vitest"
+      );
+      expect(mockReply.setCookie).toHaveBeenCalledWith(
+        "__Secure-hexavante.session_token",
+        "tok-1",
+        expect.objectContaining({ httpOnly: true, path: "/" })
       );
       expect(mockReply.send).toHaveBeenCalledWith({
-        user: mockUser,
+        user: { id: "user-1", name: "Test User", email: "test@example.com" },
+        session: { token: "tok-1", expiresAt: "2026-01-01" },
+      });
+    });
+
+    it("should return 202 when device verification is required", async () => {
+      mockRequest.body = { email: "test@example.com", password: "password123" };
+      mockAuthService.signIn.mockResolvedValue({
+        requiresVerification: true,
+        verificationId: "ver-1",
+        reason: "DEVICE",
+      });
+
+      await authController.login(mockRequest, mockReply);
+
+      expect(mockReply.status).toHaveBeenCalledWith(202);
+      expect(mockReply.send).toHaveBeenCalledWith({
+        requiresVerification: true,
+        verificationId: "ver-1",
+        reason: "DEVICE",
       });
     });
 
     it("should throw UnauthorizedError when credentials are invalid", async () => {
-      mockRequest.body = {
-        email: "test@example.com",
-        password: "wrongpassword",
-      };
-
+      mockRequest.body = { email: "test@example.com", password: "wrong" };
       mockAuthService.signIn.mockResolvedValue(null);
 
-      await expect(
-        authController.login(mockRequest, mockReply)
-      ).rejects.toThrow(UnauthorizedError);
+      await expect(authController.login(mockRequest, mockReply)).rejects.toThrow(
+        UnauthorizedError
+      );
     });
   });
 
   describe("register", () => {
-    it("should create a new user and return user data", async () => {
-      const mockUser = {
-        id: "user-1",
-        fullName: "New User",
-        email: "new@example.com",
-        username: "newuser",
-      };
-
+    it("should create a new user and return 201", async () => {
       mockRequest.body = {
         email: "new@example.com",
         username: "newuser",
@@ -110,8 +117,12 @@ describe("AuthController", () => {
         fullName: "New User",
         birthDate: "2000-01-01",
       };
-
-      mockAuthService.signUp.mockResolvedValue(mockUser);
+      mockAuthService.signUp.mockResolvedValue({
+        id: "user-1",
+        username: "newuser",
+        email: "new@example.com",
+        fullName: "New User",
+      });
 
       await authController.register(mockRequest, mockReply);
 
@@ -130,108 +141,71 @@ describe("AuthController", () => {
   });
 
   describe("logout", () => {
-    it("should call signOut and return success", async () => {
+    it("should sign out and clear the cookie", async () => {
       await authController.logout(mockRequest, mockReply);
 
-      expect(mockAuthService.signOut).toHaveBeenCalledWith(mockRequest.headers);
+      expect(mockAuthService.signOut).toHaveBeenCalledWith("test-token");
+      expect(mockReply.clearCookie).toHaveBeenCalledWith(
+        "__Secure-hexavante.session_token",
+        expect.objectContaining({ path: "/" })
+      );
+      expect(mockReply.send).toHaveBeenCalledWith({ success: true });
+    });
+
+    it("should succeed even without a session cookie", async () => {
+      mockRequest.headers = {};
+
+      await authController.logout(mockRequest, mockReply);
+
+      expect(mockAuthService.signOut).not.toHaveBeenCalled();
       expect(mockReply.send).toHaveBeenCalledWith({ success: true });
     });
   });
 
   describe("session", () => {
-    it("should return session data when session is valid", async () => {
-      const mockSession = {
+    it("should return user and session when valid", async () => {
+      mockAuthService.getSession.mockResolvedValue({
         user: { id: "user-1" },
-        session: { id: "session-1" },
-      };
-
-      const mockUser = {
+        expiresAt: "2026-01-01",
+      });
+      mockAuthService.getUserById.mockResolvedValue({
         id: "user-1",
         fullName: "Test User",
         email: "test@example.com",
         username: "testuser",
-        roles: [{ role: { name: "user" } }],
-      };
-
-      mockAuthService.getSession.mockResolvedValue(mockSession);
-      mockAuthService.getUserById.mockResolvedValue(mockUser);
+        avatarUrl: null,
+        roles: [{ role: { name: "USER" } }],
+      });
 
       await authController.session(mockRequest, mockReply);
 
-      expect(mockAuthService.getSession).toHaveBeenCalled();
-      expect(mockAuthService.getUserById).toHaveBeenCalledWith("user-1");
+      expect(mockAuthService.getSession).toHaveBeenCalledWith("test-token");
       expect(mockReply.send).toHaveBeenCalledWith({
         user: {
           id: "user-1",
           name: "Test User",
           email: "test@example.com",
           username: "testuser",
-          roles: ["user"],
+          avatarUrl: null,
+          roles: ["USER"],
         },
-        session: {
-          impersonatedBy: null,
-          impersonator: null,
-        },
+        session: { expiresAt: "2026-01-01" },
       });
+    });
+
+    it("should throw UnauthorizedError without cookie", async () => {
+      mockRequest.headers = {};
+
+      await expect(authController.session(mockRequest, mockReply)).rejects.toThrow(
+        UnauthorizedError
+      );
     });
 
     it("should throw UnauthorizedError when session is invalid", async () => {
       mockAuthService.getSession.mockResolvedValue(null);
 
-      await expect(
-        authController.session(mockRequest, mockReply)
-      ).rejects.toThrow(UnauthorizedError);
-    });
-
-    it("should throw UnauthorizedError when user is not found", async () => {
-      const mockSession = {
-        user: { id: "user-1" },
-        session: { id: "session-1" },
-      };
-
-      mockAuthService.getSession.mockResolvedValue(mockSession);
-      mockAuthService.getUserById.mockResolvedValue(null);
-
-      await expect(
-        authController.session(mockRequest, mockReply)
-      ).rejects.toThrow(UnauthorizedError);
-    });
-
-    it("should return impersonator data when session is impersonated", async () => {
-      const mockSession = {
-        user: { id: "user-1" },
-        session: { id: "session-1", impersonatedBy: "admin-1" },
-      };
-
-      const mockUser = {
-        id: "user-1",
-        fullName: "Test User",
-        email: "test@example.com",
-        username: "testuser",
-        roles: [{ role: { name: "user" } }],
-      };
-
-      const mockImpersonator = {
-        id: "admin-1",
-        username: "admin",
-      };
-
-      mockAuthService.getSession.mockResolvedValue(mockSession);
-      mockAuthService.getUserById.mockResolvedValue(mockUser);
-      mockAuthService.getUserBasicInfo.mockResolvedValue(mockImpersonator);
-
-      await authController.session(mockRequest, mockReply);
-
-      expect(mockReply.send).toHaveBeenCalledWith(
-        expect.objectContaining({
-          session: {
-            impersonatedBy: "admin-1",
-            impersonator: {
-              id: "admin-1",
-              username: "admin",
-            },
-          },
-        })
+      await expect(authController.session(mockRequest, mockReply)).rejects.toThrow(
+        UnauthorizedError
       );
     });
   });

@@ -82,9 +82,7 @@ export interface ILearningRepository {
 
 export class CourseLearningRepository implements ILearningRepository {
   async getUserCourse(courseId: string): Promise<CourseWithModulesRecord | null> {
-    return prisma.course.findUnique({
-      where: { id: courseId },
-      select: {
+    const select = {
         id: true,
         title: true,
         slug: true,
@@ -112,8 +110,12 @@ export class CourseLearningRepository implements ILearningRepository {
             },
           },
         },
-      },
-    });
+      } as const;
+    // Por id, com fallback por slug (clientes navegam pelos dois)
+    return (
+      (await prisma.course.findUnique({ where: { id: courseId }, select })) ??
+      (await prisma.course.findUnique({ where: { slug: courseId }, select }))
+    );
   }
 
   async findEnrollment(userId: string, courseId: string) {

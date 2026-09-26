@@ -18,12 +18,12 @@ describe("API Integration Tests", () => {
     it("should return 200 on health endpoint", async () => {
       const response = await app.inject({
         method: "GET",
-        url: "/api/v1/health",
+        url: "/health",
       });
 
-      expect(response.statusCode).toBe(200);
-      const body = JSON.parse(response.payload);
-      expect(body.status).toBe("ok");
+        expect(response.statusCode).toBe(200);
+        const body = JSON.parse(response.payload);
+        expect(body.status).toBe("healthy");
     });
   });
 
@@ -31,20 +31,20 @@ describe("API Integration Tests", () => {
     const testUser = {
       email: `test-${Date.now()}@example.com`,
       password: "TestPassword123!",
-      username: `testuser-${Date.now()}`,
+      username: `testuser_${Date.now()}`,
       fullName: "Test User",
       birthDate: "2000-01-01",
     };
 
-    describe("POST /api/auth/sign-up/email", () => {
+    describe("POST /api/v1/auth/register", () => {
       it("should register a new user", async () => {
         const response = await app.inject({
           method: "POST",
-          url: "/api/auth/sign-up/email",
+          url: "/api/v1/auth/register",
           payload: testUser,
         });
 
-        expect(response.statusCode).toBe(200);
+        expect(response.statusCode).toBe(201);
         const body = JSON.parse(response.payload);
         expect(body.user).toBeDefined();
         expect(body.user.email).toBe(testUser.email);
@@ -53,7 +53,7 @@ describe("API Integration Tests", () => {
       it("should return 400 for invalid email", async () => {
         const response = await app.inject({
           method: "POST",
-          url: "/api/auth/sign-up/email",
+          url: "/api/v1/auth/register",
           payload: {
             ...testUser,
             email: "invalid-email",
@@ -66,7 +66,7 @@ describe("API Integration Tests", () => {
       it("should return 400 for short password", async () => {
         const response = await app.inject({
           method: "POST",
-          url: "/api/auth/sign-up/email",
+          url: "/api/v1/auth/register",
           payload: {
             ...testUser,
             email: `test2-${Date.now()}@example.com`,
@@ -80,7 +80,7 @@ describe("API Integration Tests", () => {
       it("should return 409 for duplicate email", async () => {
         const response = await app.inject({
           method: "POST",
-          url: "/api/auth/sign-up/email",
+          url: "/api/v1/auth/register",
           payload: testUser,
         });
 
@@ -88,27 +88,28 @@ describe("API Integration Tests", () => {
       });
     });
 
-    describe("POST /api/auth/sign-in/email", () => {
-      it("should login with valid credentials", async () => {
+    describe("POST /api/v1/auth/login", () => {
+      it("should require verification for new accounts", async () => {
         const response = await app.inject({
           method: "POST",
-          url: "/api/auth/sign-in/email",
+          url: "/api/v1/auth/login",
           payload: {
             email: testUser.email,
             password: testUser.password,
           },
         });
 
-        expect(response.statusCode).toBe(200);
+        // Conta nova: e-mail não verificado + dispositivo novo → 202 com código
+        expect(response.statusCode).toBe(202);
         const body = JSON.parse(response.payload);
-        expect(body.user).toBeDefined();
-        expect(body.user.email).toBe(testUser.email);
+        expect(body.requiresVerification).toBe(true);
+        expect(body.verificationId).toBeDefined();
       });
 
       it("should return 401 for invalid credentials", async () => {
         const response = await app.inject({
           method: "POST",
-          url: "/api/auth/sign-in/email",
+          url: "/api/v1/auth/login",
           payload: {
             email: testUser.email,
             password: "wrongpassword",
@@ -121,7 +122,7 @@ describe("API Integration Tests", () => {
       it("should return 401 for non-existent user", async () => {
         const response = await app.inject({
           method: "POST",
-          url: "/api/auth/sign-in/email",
+          url: "/api/v1/auth/login",
           payload: {
             email: "nonexistent@example.com",
             password: "password",
@@ -211,7 +212,7 @@ describe("API Integration Tests", () => {
     it("should include CORS headers", async () => {
       const response = await app.inject({
         method: "OPTIONS",
-        url: "/api/v1/health",
+        url: "/health",
         headers: {
           origin: "https://hexavante.com.br",
           "access-control-request-method": "GET",
@@ -227,7 +228,7 @@ describe("API Integration Tests", () => {
     it("should have rate limiting headers", async () => {
       const response = await app.inject({
         method: "GET",
-        url: "/api/v1/health",
+        url: "/health",
       });
 
       // Rate limiting headers may or may not be present depending on config

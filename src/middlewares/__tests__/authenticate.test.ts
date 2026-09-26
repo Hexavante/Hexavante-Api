@@ -1,15 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { authenticate } from "../authenticate";
-import { auth } from "../../config/auth";
 
-// Mock dependencies
-vi.mock("../../config/auth", () => ({
-  auth: {
-    api: {
-      getSession: vi.fn(),
-    },
-  },
+vi.mock("../../config/prisma", () => ({
+  prisma: { user: { findUnique: vi.fn() } },
 }));
+
+vi.mock("../../lib/session", () => ({
+  parseSessionToken: vi.fn(),
+  validateSession: vi.fn(),
+}));
+
+import { prisma } from "../../config/prisma";
+import { parseSessionToken, validateSession } from "../../lib/session";
+
+const COOKIE = "__Secure-hexavante.session_token=test-token";
 
 describe("authenticate middleware", () => {
   let mockRequest: any;
@@ -17,94 +21,55 @@ describe("authenticate middleware", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-
-    mockRequest = {
-      headers: {
-        cookie: "hexavante.session_token=test-token",
-      },
-      auth: null,
-      user: null,
-    };
-
-    mockReply = {
-      status: vi.fn().mockReturnThis(),
-      send: vi.fn().mockReturnThis(),
-    };
+    mockRequest = { headers: { cookie: COOKIE }, auth: null, user: null };
+    mockReply = { status: vi.fn().mockReturnThis(), send: vi.fn().mockReturnThis() };
   });
 
   it("should authenticate user with valid session", async () => {
-    const mockSession = {
-      user: {
-        id: "user-1",
-        email: "test@example.com",
-        name: "Test User",
-      },
-      session: {
-        id: "session-1",
-        token: "test-token",
-      },
-    };
-
-    vi.mocked(auth.api.getSession).mockResolvedValue(mockSession as any);
+    vi.mocked(parseSessionToken).mockReturnValue("test-token");
+    vi.mocked(validateSession).mockResolvedValue({
+      user: { id: "user-1", email: "test@example.com" },
+      expiresAt: "2026-01-01",
+    } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ banned: false } as any);
 
     await authenticate(mockRequest, mockReply);
 
-    expect(auth.api.getSession).toHaveBeenCalledWith({
-      headers: mockRequest.headers,
-    });
-    expect(mockRequest.auth).toEqual(mockSession);
-    expect(mockRequest.user).toEqual(mockSession.user);
+    expect(mockRequest.user).toEqual({ id: "user-1", email: "test@example.com" });
+    expect(mockRequest.auth.session).toEqual({ userId: "user-1", expiresAt: "2026-01-01" });
     expect(mockReply.status).not.toHaveBeenCalled();
   });
 
-  it("should return 401 when session is null", async () => {
-    vi.mocked(auth.api.getSession).mockResolvedValue(null);
-
-    await authenticate(mockRequest, mockReply);
-
-    expect(auth.api.getSession).toHaveBeenCalled();
-    expect(mockReply.status).toHaveBeenCalledWith(401);
-    expect(mockReply.send).toHaveBeenCalledWith({
-      success: false,
-      error: "Unauthorized",
-    });
-    expect(mockRequest.auth).toBeNull();
-    expect(mockRequest.user).toBeNull();
-  });
-
-  it("should return 401 when session is undefined", async () => {
-    vi.mocked(auth.api.getSession).mockResolvedValue(undefined as any);
+  it("should return 401 without cookie", async () => {
+    mockRequest.headers = {};
+    vi.mocked(parseSessionToken).mockReturnValue(null);
 
     await authenticate(mockRequest, mockReply);
 
     expect(mockReply.status).toHaveBeenCalledWith(401);
-    expect(mockReply.send).toHaveBeenCalledWith({
-      success: false,
-      error: "Unauthorized",
-    });
+    expect(mockReply.send).toHaveBeenCalledWith({ success: false, error: "Unauthorized" });
   });
 
-  it("should handle errors from getSession", async () => {
-    vi.mocked(auth.api.getSession).mockRejectedValue(new Error("DB error"));
-
-    await expect(
-      authenticate(mockRequest, mockReply)
-    ).rejects.toThrow("DB error");
-  });
-
-  it("should pass headers to getSession", async () => {
-    const customHeaders = {
-      authorization: "Bearer custom-token",
-      "x-custom-header": "value",
-    };
-
-    mockRequest.headers = customHeaders;
-    vi.mocked(auth.api.getSession).mockResolvedValue(null);
+  it("should return 401 with invalid session", async () => {
+    vi.mocked(parseSessionToken).mockReturnValue("bad-token");
+    vi.mocked(validateSession).mockResolvedValue(null);
 
     await authenticate(mockRequest, mockReply);
 
-    expect(auth.api.getSession).toHaveBeenCalledWith({
-      headers: customHeaders,
-    });
+    expect(mockReply.status).toHaveBeenCalledWith(401);
+  });
+
+  it("should return 403 for banned users", async () => {
+    vi.mocked(parseSessionToken).mockReturnValue("test-token");
+    vi.mocked(validateSession).mockResolvedValue({
+      user: { id: "user-1" },
+      expiresAt: "2026-01-01",
+    } as any);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ banned: true } as any);
+
+    await authenticate(mockRequest, mockReply);
+
+    expect(mockReply.status).toHaveBeenCalledWith(403);
+    expect(mockReply.send).toHaveBeenCalledWith({ success: false, error: "Conta banida" });
   });
 });
