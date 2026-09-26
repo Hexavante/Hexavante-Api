@@ -4,6 +4,7 @@ import { BadRequestError, ConflictError } from '../../../lib/errors/AppError';
 import { hashPassword, verifyPassword } from '../../../lib/password';
 import { createSession, deleteSession, validateSession } from '../../../lib/session';
 import { SecurityService, fingerprintDevice, deviceDisplayName } from '../../security/service/security.service';
+import { ShopService } from '../../shop/service/shop.service';
 
 const MIN_AGE = 13;
 
@@ -62,6 +63,7 @@ export class AuthService {
 
     await security.touchDevice(user.id, fingerprint, userAgent, ipAddress);
     const session = await createSession(user.id, ipAddress, userAgent);
+    await new ShopService().ensureActiveTheme(user.id);
 
     return {
       user: {
@@ -136,6 +138,7 @@ export class AuthService {
         skipDuplicates: true,
       });
     }
+    await new ShopService().ensureActiveTheme(created.id);
 
     return created;
   }

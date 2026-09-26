@@ -34,6 +34,7 @@ vi.mock("../../../config/prisma", () => ({
     },
     userInventory: {
       createMany: vi.fn(),
+      findFirst: vi.fn().mockResolvedValue({ id: "inv-1" }),
     },
   },
 }));

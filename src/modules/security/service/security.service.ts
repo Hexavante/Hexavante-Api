@@ -4,6 +4,7 @@ import { createSession } from "../../../lib/session";
 import { hashPassword } from "../../../lib/password";
 import { sendEmail, deviceCodeEmailHtml, emailVerifyHtml, twoFactorEmailHtml } from "../../../lib/email";
 import { AppError, NotFoundError, BadRequestError } from "../../../lib/errors/AppError";
+import { ShopService } from "../../shop/service/shop.service";
 
 export const PRESENCE_STATUSES = ["ONLINE", "AWAY", "STUDYING", "DND", "INVISIBLE"] as const;
 export type PresenceStatus = (typeof PRESENCE_STATUSES)[number];
@@ -228,6 +229,7 @@ export class SecurityService {
     });
     if (!user) throw new NotFoundError("Usuário não encontrado.");
 
+    await new ShopService().ensureActiveTheme(user.id);
     return this.buildSession(user.id, ip, userAgent);
   }
 

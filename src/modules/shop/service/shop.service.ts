@@ -275,4 +275,31 @@ export class ShopService {
       premiumExpiresAt: user.premiumExpiresAt?.toISOString() ?? null,
     }
   }
+
+  // Garante um tema ativo: se nenhum THEME equipado e válido, equipa o padrão.
+  // Espelha ensureDefaultUserCosmetics do web. Idempotente.
+  async ensureActiveTheme(userId: string): Promise<void> {
+    const active = await prisma.userInventory.findFirst({
+      where: {
+        userId,
+        isEquipped: true,
+        storeItem: { category: 'THEME' },
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+      },
+      select: { id: true },
+    })
+    if (active) return
+
+    const def = await prisma.storeItem.findUnique({
+      where: { slug: 'theme-hexavante' },
+      select: { id: true },
+    })
+    if (!def) return
+
+    await prisma.userInventory.upsert({
+      where: { userId_storeItemId: { userId, storeItemId: def.id } },
+      update: { isEquipped: true },
+      create: { userId, storeItemId: def.id, isEquipped: true },
+    })
+  }
 }
