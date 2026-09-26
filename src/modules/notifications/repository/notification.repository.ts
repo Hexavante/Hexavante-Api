@@ -42,4 +42,12 @@ export class NotificationRepository {
     ]);
     return { notifications, unreadCount };
   }
+
+  async upsertPushToken(userId: string, expoToken: string, deviceName?: string | null) {
+    return prisma.pushToken.upsert({
+      where: { expoToken },
+      update: { userId, deviceName: deviceName ?? null },
+      create: { userId, expoToken, deviceName: deviceName ?? null },
+    });
+  }
 }

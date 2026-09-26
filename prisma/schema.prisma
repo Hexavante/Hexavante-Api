@@ -57,6 +57,7 @@ model User {
   sessions           Session[]
   trustedDevices     TrustedDevice[]
   deviceCodes        DeviceVerificationCode[]
+  pushTokens         PushToken[]
   tutorials          Tutorial[]
   adminSessions      AdminSession[]
   adminVerificationCodes AdminVerificationCode[]
@@ -1337,4 +1338,18 @@ model TutorialTag {
   @@unique([tutorialId, tagId], map: "tutorial_tags_tutorial_id_tag_id_key")
   @@index([tagId])
   @@map("tutorial_tags")
+}
+
+model PushToken {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  expoToken  String   @unique @map("expo_token")
+  deviceName String?  @map("device_name")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_tokens")
 }

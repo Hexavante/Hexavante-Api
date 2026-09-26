@@ -4,7 +4,7 @@ import { NotificationService } from "../service/notification.service";
 import { NotificationRepository } from "../repository/notification.repository";
 import { authenticate } from "../../../middlewares/authenticate";
 import { asyncHandler } from "../../../lib/errors/errorHandler";
-import { listNotificationsSchema, markReadSchema, markAllReadSchema } from "../schemas/notification.schemas";
+import { listNotificationsSchema, markReadSchema, markAllReadSchema, registerPushTokenSchema } from "../schemas/notification.schemas";
 import { validateQuery, validateParams, validateBody } from "../../../lib/validation/validate";
 
 export async function notificationRoutes(fastify: FastifyInstance) {
@@ -28,5 +28,11 @@ export async function notificationRoutes(fastify: FastifyInstance) {
     "/api/v1/notifications/read-all",
     { preHandler: [authenticate, validateBody(markAllReadSchema)], schema: { summary: "Marcar todas como lidas", tags: ["Notifications"], security: [{ session: [] }] } },
     asyncHandler(controller.markAllAsRead.bind(controller)),
+  );
+
+  fastify.post(
+    "/api/v1/notifications/register",
+    { preHandler: [authenticate, validateBody(registerPushTokenSchema)], schema: { summary: "Registrar token push (Expo)", tags: ["Notifications"], security: [{ session: [] }] } },
+    asyncHandler(controller.registerPushToken.bind(controller)),
   );
 }

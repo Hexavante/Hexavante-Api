@@ -39,4 +39,13 @@ export class NotificationController {
       count,
     });
   });
+
+  registerPushToken = asyncHandler(async (request: FastifyRequest, reply: FastifyReply) => {
+    const userId = (request.user as { id: string }).id;
+    const { expoToken, deviceName } = request.body as { expoToken: string; deviceName?: string };
+
+    await this.service.registerPushToken(userId, expoToken, deviceName);
+
+    return reply.send({ success: true });
+  });
 }

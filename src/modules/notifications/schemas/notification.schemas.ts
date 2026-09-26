@@ -15,5 +15,10 @@ export const markReadSchema = z.object({
 
 export const markAllReadSchema = z.object({}).default({});
 
+export const registerPushTokenSchema = z.object({
+  expoToken: z.string().min(1, "Token inválido").max(255),
+  deviceName: z.string().max(120).optional(),
+});
+
 export type ListNotificationsQuery = z.infer<typeof listNotificationsSchema>["query"];
 export type MarkReadParams = z.infer<typeof markReadSchema>["params"];

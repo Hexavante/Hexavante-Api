@@ -23,4 +23,8 @@ export class NotificationService {
   async markAllAsRead(userId: string): Promise<number> {
     return this.repository.markAllAsRead(userId);
   }
+
+  async registerPushToken(userId: string, expoToken: string, deviceName?: string | null): Promise<void> {
+    await this.repository.upsertPushToken(userId, expoToken, deviceName);
+  }
 }
