@@ -47,6 +47,9 @@ export class CertificateController {
 
     return reply.send({
       success: true,
+      // Aliases de topo para clientes mobile
+      title: certificate.course.title,
+      fullName: certificate.user.fullName,
       certificate: {
         id: certificate.id,
         code: certificate.code,

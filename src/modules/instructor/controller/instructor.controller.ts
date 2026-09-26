@@ -33,6 +33,6 @@ export class InstructorController {
   async getMyCourses(request: FastifyRequest, reply: FastifyReply): Promise<void> {
     const userId = request.user!.id;
     const courses = await this.instructorService.getMyCourses(userId);
-    reply.send({ success: true, courses });
+    reply.send({ success: true, courses, data: courses });
   }
 }

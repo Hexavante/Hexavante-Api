@@ -168,6 +168,7 @@ export class XpService {
 
     return ACHIEVEMENTS.map((a) => ({
       ...a,
+      title: (a as { title?: string; name?: string }).title ?? (a as { name?: string }).name ?? a.key,
       unlocked: unlockedKeys.has(a.key),
       unlockedAt: userAchievements.find((ua) => ua.achievementKey === a.key)?.unlockedAt.toISOString() ?? null,
     }));

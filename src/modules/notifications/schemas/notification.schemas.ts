@@ -13,7 +13,7 @@ export const markReadSchema = z.object({
   }),
 });
 
-export const markAllReadSchema = z.object({});
+export const markAllReadSchema = z.object({}).default({});
 
 export type ListNotificationsQuery = z.infer<typeof listNotificationsSchema>["query"];
 export type MarkReadParams = z.infer<typeof markReadSchema>["params"];

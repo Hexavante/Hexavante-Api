@@ -13,7 +13,7 @@ export class LiveRoomController {
   async list(request: FastifyRequest, reply: FastifyReply): Promise<void> {
     const query = (request.query ?? {}) as { status?: string };
     const rooms = await this.liveRoomService.list(query.status ?? "all");
-    reply.send({ rooms, success: true });
+    reply.send({ rooms, data: rooms, success: true });
   }
 
   async instructorRooms(request: FastifyRequest, reply: FastifyReply): Promise<void> {

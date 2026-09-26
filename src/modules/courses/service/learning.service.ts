@@ -143,6 +143,9 @@ export class LearningService {
         estimatedHours: course.estimatedHours,
       },
       enrollment: { id: enrollment.id, progress: enrollment.progress },
+      // Aliases de topo para clientes mobile (espelham `learning`)
+      isFavorite: favoriteLessonIds.includes(lessonId),
+      note,
       lesson: {
         id: lesson.id,
         title: lesson.title,

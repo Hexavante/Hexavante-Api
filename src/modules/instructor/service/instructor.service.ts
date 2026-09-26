@@ -9,7 +9,14 @@ export class InstructorService {
 
   async getStatus(userId: string) {
     const application = await this.repository.getLatestApplication(userId);
-    return { application };
+    const status = application?.status ?? null;
+    return {
+      application,
+      success: true,
+      // Aliases para clientes mobile (isInstructor/pending)
+      isInstructor: status === 'APPROVED',
+      pending: status === 'PENDING',
+    };
   }
 
   async apply(userId: string, data: {

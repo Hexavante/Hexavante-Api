@@ -2,7 +2,6 @@ import { FastifyInstance } from 'fastify';
 import { AuthController } from '../controller/auth.controller';
 import { AuthService } from '../service/auth.service';
 import { rateLimitPlugin } from '../../../plugins/rate-limit';
-
 const authService = new AuthService();
 const authController = new AuthController(authService);
 

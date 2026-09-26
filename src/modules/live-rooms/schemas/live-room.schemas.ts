@@ -20,9 +20,17 @@ export const updateRoomSchema = z.object({
   maxParticipants: z.coerce.number().int().optional(),
 });
 
-export const sendMessageSchema = z.object({
-  message: z.string().trim().min(1, "Mensagem vazia").max(1000),
-});
+export const sendMessageSchema = z.preprocess(
+  (v) => {
+    if (v && typeof v === 'object' && !('message' in v) && 'content' in v) {
+      return { ...(v as Record<string, unknown>), message: (v as { content: unknown }).content };
+    }
+    return v;
+  },
+  z.object({
+    message: z.string().trim().min(1, "Mensagem vazia").max(1000),
+  }),
+);
 
 export type CreateRoomInput = z.infer<typeof createRoomSchema>;
 export type UpdateRoomInput = z.infer<typeof updateRoomSchema>;

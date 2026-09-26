@@ -57,7 +57,7 @@ export class CourseController {
     const userId = request.user!.id;
 
     const enrollment = await this.courseService.enroll(userId, id);
-    reply.status(201).send({ enrollment });
+    reply.status(201).send({ success: true, enrollment });
   }
 
   async getProgress(
