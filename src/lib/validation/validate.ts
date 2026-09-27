@@ -1,38 +1,53 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { ZodSchema } from 'zod';
+import { ZodSchema, ZodObject, ZodRawShape } from 'zod';
+
+// Schemas podem ser planos ({email}) ou envelopes ({params:{...}}).
+// Desembrulha automaticamente para a parte validada.
+function parsePart(schema: ZodSchema, part: 'body' | 'query' | 'params', data: unknown) {
+  if (schema instanceof ZodObject) {
+    const shape = (schema as ZodObject<ZodRawShape>).shape;
+    const inner = (shape as Record<string, ZodSchema | undefined>)[part];
+    if (inner) {
+      const result = inner.safeParse(data);
+      return { result, assign: (req: FastifyRequest) => { (req as unknown as Record<string, unknown>)[part] = result.success ? result.data : data; } };
+    }
+  }
+  const result = schema.safeParse(data);
+  return { result, assign: (req: FastifyRequest) => { (req as unknown as Record<string, unknown>)[part] = result.success ? result.data : data; } };
+}
 
 export function validateBody<T>(schema: ZodSchema<T>) {
   return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-    const result = schema.safeParse(request.body);
+    const { result, assign } = parsePart(schema, 'body', request.body);
 
     if (!result.success) {
       throw result.error;
     }
 
-    request.body = result.data;
+    assign(request);
   };
 }
 
 export function validateQuery<T>(schema: ZodSchema<T>) {
   return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-    const result = schema.safeParse(request.query);
+    const { result, assign } = parsePart(schema, 'query', request.query);
 
     if (!result.success) {
       throw result.error;
     }
 
-    request.query = result.data;
+    assign(request);
   };
 }
 
 export function validateParams<T>(schema: ZodSchema<T>) {
   return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-    const result = schema.safeParse(request.params);
+    const { result, assign } = parsePart(schema, 'params', request.params);
 
     if (!result.success) {
       throw result.error;
     }
 
-    request.params = result.data;
+    assign(request);
   };
 }
