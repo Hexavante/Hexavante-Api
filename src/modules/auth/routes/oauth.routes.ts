@@ -1,9 +1,52 @@
 import { FastifyInstance } from 'fastify';
-import { getOAuthConfig, getRedirectUri, getWebUrl, getAllowedRedirectHosts, oauthProviders } from '../../../config/oauth';
+import {
+  getOAuthConfig,
+  getRedirectUri,
+  getWebUrl,
+  getAllowedRedirectHosts,
+  oauthProviders,
+  parseTokenResponse,
+} from '../../../config/oauth';
 import { findOrCreateOAuthUser } from '../service/oauth.service';
 import { createSession } from '../../../lib/session';
 
 export async function oauthRoutes(fastify: FastifyInstance) {
+  // GET /oauth/providers — quais providers estão configurados (público)
+  // Registrado ANTES de /oauth/:provider; no radix tree do Fastify o segmento
+  // estático "providers" tem prioridade sobre o param ":provider", mas manter
+  // a ordem deixa a intenção explícita.
+  fastify.get('/oauth/providers', {
+    schema: {
+      summary: "Listar providers OAuth configurados",
+      tags: ["Auth"],
+      description:
+        "Retorna quais providers OAuth (Google, GitHub, Microsoft, Discord) estão habilitados na API, ou seja, têm credenciais (CLIENT_ID/SECRET) no ambiente. Público, sem autenticação.",
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            providers: {
+              type: "object",
+              properties: {
+                google: { type: "boolean", description: "Google configurado" },
+                github: { type: "boolean", description: "GitHub configurado" },
+                microsoft: { type: "boolean", description: "Microsoft configurado" },
+                discord: { type: "boolean", description: "Discord configurado" },
+              },
+            },
+          },
+        },
+      },
+    },
+  }, async () => ({
+    providers: {
+      google: getOAuthConfig('google')?.enabled === true,
+      github: getOAuthConfig('github')?.enabled === true,
+      microsoft: getOAuthConfig('microsoft')?.enabled === true,
+      discord: getOAuthConfig('discord')?.enabled === true,
+    },
+  }));
+
   // GET /oauth/:provider — redireciona pro consent do provider
   fastify.get('/oauth/:provider', {
     schema: {
@@ -134,17 +177,14 @@ export async function oauthRoutes(fastify: FastifyInstance) {
         grant_type: 'authorization_code',
       };
 
-      // GitHub precisa de Accept header pra receber JSON
-      const tokenHeaders: Record<string, string> =
-        provider === 'github'
-          ? { Accept: 'application/json' }
-          : {};
-
+      // Accept: application/json faz o GitHub devolver JSON (os demais já
+      // devolvem); o parser abaixo aceita JSON e urlencoded, então qualquer
+      // formato funciona para qualquer provider.
       const tokenRes = await fetch(config.tokenEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
-          ...tokenHeaders,
+          Accept: 'application/json',
         },
         body: new URLSearchParams(tokenBody).toString(),
       });
@@ -155,7 +195,7 @@ export async function oauthRoutes(fastify: FastifyInstance) {
         return reply.redirect(`${webUrl}/login?error=oauth_token_exchange`);
       }
 
-      const tokenData = (await tokenRes.json()) as any;
+      const tokenData = parseTokenResponse(await tokenRes.text());
       const accessToken = tokenData.access_token;
 
       if (!accessToken) {

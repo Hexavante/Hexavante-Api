@@ -97,25 +97,49 @@ export const oauthProviders: Record<string, OAuthProviderDefinition> = {
       };
     },
   },
-  // Microsoft - descomentar quando tiver as credenciais
-  // microsoft: {
-  //   name: 'microsoft',
-  //   label: 'Microsoft',
-  //   getUserInfo: async (accessToken: string) => {
-  //     const res = await fetch('https://graph.microsoft.com/v1.0/me', {
-  //       headers: { Authorization: `Bearer ${accessToken}` },
-  //     });
-  //     if (!res.ok) throw new Error('Failed to fetch Microsoft user info');
-  //     const data = await res.json();
-  //     return {
-  //       providerId: data.id,
-  //       email: data.mail || data.userPrincipalName,
-  //       name: data.displayName || '',
-  //       avatarUrl: null,
-  //     };
-  //   },
-  // },
+  microsoft: {
+    name: 'microsoft',
+    label: 'Microsoft',
+    getUserInfo: async (accessToken: string) => {
+      const res = await fetch('https://graph.microsoft.com/v1.0/me', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) throw new Error('Failed to fetch Microsoft user info');
+      const data = await res.json() as any;
+      return {
+        providerId: data.id,
+        // Contas pessoais (@outlook.com/@hotmail.com) não têm `mail`,
+        // só `userPrincipalName`.
+        email: data.mail || data.userPrincipalName || '',
+        name: data.displayName || '',
+        avatarUrl: null,
+      };
+    },
+  },
+  discord: {
+    name: 'discord',
+    label: 'Discord',
+    getUserInfo: async (accessToken: string) => {
+      const res = await fetch('https://discord.com/api/users/@me', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) throw new Error('Failed to fetch Discord user info');
+      const data = await res.json() as any;
+      return {
+        providerId: String(data.id),
+        // `email` só vem se o app tiver o scope `email` e a conta verificada.
+        email: data.email || '',
+        name: data.global_name || data.username || '',
+        avatarUrl: data.avatar
+          ? `https://cdn.discordapp.com/avatars/${data.id}/${data.avatar}.png?size=128`
+          : null,
+      };
+    },
+  },
 };
+
+/** Providers OAuth suportados pela API (mesmo conjunto de `oauthProviders`). */
+export const OAUTH_PROVIDER_IDS = ['google', 'github', 'microsoft', 'discord'] as const;
 
 export function getOAuthConfig(provider: string): OAuthProviderConfig | null {
   switch (provider) {
@@ -137,18 +161,59 @@ export function getOAuthConfig(provider: string): OAuthProviderConfig | null {
         scopes: ['user:email'],
         enabled: !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
       };
-    // Microsoft - descomentar quando tiver as credenciais
-    // case 'microsoft':
-    //   return {
-    //     clientId: process.env.MICROSOFT_CLIENT_ID || '',
-    //     clientSecret: process.env.MICROSOFT_CLIENT_SECRET || '',
-    //     authorizationEndpoint: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
-    //     tokenEndpoint: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-    //     scopes: ['openid', 'email', 'profile', 'User.Read'],
-    //     enabled: !!(process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET),
-    //   };
+    case 'microsoft':
+      return {
+        clientId: process.env.MICROSOFT_CLIENT_ID || '',
+        clientSecret: process.env.MICROSOFT_CLIENT_SECRET || '',
+        authorizationEndpoint: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
+        tokenEndpoint: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+        scopes: ['openid', 'email', 'profile', 'User.Read'],
+        enabled: !!(process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET),
+      };
+    case 'discord':
+      return {
+        clientId: process.env.DISCORD_CLIENT_ID || '',
+        clientSecret: process.env.DISCORD_CLIENT_SECRET || '',
+        authorizationEndpoint: 'https://discord.com/api/oauth2/authorize',
+        tokenEndpoint: 'https://discord.com/api/oauth2/token',
+        scopes: ['identify', 'email'],
+        enabled: !!(process.env.DISCORD_CLIENT_ID && process.env.DISCORD_CLIENT_SECRET),
+      };
     default:
       return null;
+  }
+}
+
+/**
+ * Interpreta a resposta do token exchange.
+ *
+ * Google, Microsoft e Discord devolvem JSON; GitHub devolve
+ * `application/x-www-form-urlencoded` a menos que se peça
+ * `Accept: application/json`. Aceita os dois formatos para qualquer provider
+ * (e também tolera corpo vazio, que vira `{}` → "oauth_no_token").
+ */
+export function parseTokenResponse(text: string): Record<string, string> {
+  const trimmed = (text || '').trim();
+  if (!trimmed) return {};
+
+  try {
+    const parsed: unknown = JSON.parse(trimmed);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, string>;
+    }
+  } catch {
+    // Não é JSON válido — tenta urlencoded abaixo.
+  }
+
+  try {
+    const params = new URLSearchParams(trimmed);
+    const result: Record<string, string> = {};
+    for (const [key, value] of params) {
+      result[key] = value;
+    }
+    return result;
+  } catch {
+    return {};
   }
 }
 
