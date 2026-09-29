@@ -8,9 +8,24 @@ vi.mock("../service/oauth.service", () => ({
 }));
 vi.mock("../../../lib/session", () => ({
   createSession: vi.fn(),
+  validateSession: vi.fn(),
+}));
+// trustDevice não é o alvo destes testes — evita bater no Prisma.
+vi.mock("../../security/service/security.service", () => ({
+  SecurityService: vi.fn().mockImplementation(() => ({
+    trustDevice: vi.fn().mockResolvedValue(undefined),
+  })),
+  fingerprintDevice: vi.fn(() => "fingerprint"),
 }));
 
 import { oauthRoutes } from "../routes/oauth.routes";
+import { findOrCreateOAuthUser } from "../service/oauth.service";
+import { createSession, validateSession } from "../../../lib/session";
+import { getRedisClient, closeRedisClient } from "../../../config/redis";
+import { getWebUrl } from "../../../config/oauth";
+
+/** Chaves `oauth:native:*` criadas durante os testes (limpeza garantida). */
+const nativeKeys: string[] = [];
 
 describe("OAuth routes", () => {
   let app: FastifyInstance;
@@ -24,10 +39,19 @@ describe("OAuth routes", () => {
 
   afterAll(async () => {
     await app.close();
+    await closeRedisClient();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+    if (nativeKeys.length) {
+      const redis = getRedisClient();
+      while (nativeKeys.length) {
+        await redis.del(nativeKeys.pop() as string);
+      }
+    }
   });
 
   describe("GET /oauth/providers", () => {
@@ -187,6 +211,379 @@ describe("OAuth routes", () => {
       expect(url.searchParams.get("redirect_uri")).toBe(
         "http://localhost:3045/oauth/callback/discord"
       );
+    });
+  });
+
+  describe("GET /oauth/:provider — schemes nativos", () => {
+    const enableGoogle = () => {
+      vi.stubEnv("GOOGLE_CLIENT_ID", "g-id");
+      vi.stubEnv("GOOGLE_CLIENT_SECRET", "g-secret");
+    };
+
+    it("aceita scheme da allowlist (hexavante://) e guarda o valor cru", async () => {
+      enableGoogle();
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/oauth/google",
+        query: { callbackURL: "hexavante://auth/callback" },
+      });
+
+      expect(response.statusCode).toBe(302);
+      expect(
+        (response.headers.location as string).startsWith(
+          "https://accounts.google.com/o/oauth2/v2/auth"
+        )
+      ).toBe(true);
+
+      const callback = response.cookies.find((c) => c.name === "oauth_callback");
+      expect(decodeURIComponent(callback?.value ?? "")).toBe(
+        "hexavante://auth/callback"
+      );
+    });
+
+    it("aceita schemes extras listados em OAUTH_NATIVE_SCHEMES", async () => {
+      enableGoogle();
+      vi.stubEnv("OAUTH_NATIVE_SCHEMES", "hexavante,meuapp");
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/oauth/google",
+        query: { callbackURL: "meuapp://entrar" },
+      });
+
+      expect(response.statusCode).toBe(302);
+      const callback = response.cookies.find((c) => c.name === "oauth_callback");
+      expect(decodeURIComponent(callback?.value ?? "")).toBe("meuapp://entrar");
+    });
+
+    it("rejeita scheme fora da allowlist com 400", async () => {
+      enableGoogle();
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/oauth/google",
+        query: { callbackURL: "foo://x" },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(JSON.parse(response.payload)).toEqual({
+        error: "Scheme de callback não permitido",
+      });
+      expect(
+        response.cookies.some((c) => c.name === "oauth_callback")
+      ).toBe(false);
+    });
+
+    it("mantém o caminho web relativo inalterado", async () => {
+      enableGoogle();
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/oauth/google",
+        query: { callbackURL: "/dashboard" },
+      });
+
+      expect(response.statusCode).toBe(302);
+      const callback = response.cookies.find((c) => c.name === "oauth_callback");
+      expect(decodeURIComponent(callback?.value ?? "")).toBe(
+        `${getWebUrl()}/dashboard`
+      );
+    });
+
+    it("mantém http(s) fora da allowlist de domínios rejeitado", async () => {
+      enableGoogle();
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/oauth/google",
+        query: { callbackURL: "https://evil.com/" },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(JSON.parse(response.payload)).toEqual({
+        error: "Domínio de redirecionamento não permitido",
+      });
+    });
+  });
+
+  describe("GET /oauth/callback/:provider — redirects", () => {
+    /** Troca de token + getUserInfo do Google respondem com fixtures. */
+    const stubGoogleFetch = (tokenStatus = 200) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (input: RequestInfo | URL) => {
+          const url = String(input);
+          if (url.includes("oauth2.googleapis.com/token")) {
+            return new Response(
+              tokenStatus === 200
+                ? JSON.stringify({ access_token: "at-1" })
+                : "bad token",
+              {
+                status: tokenStatus,
+                headers: { "Content-Type": "application/json" },
+              }
+            );
+          }
+          if (url.includes("googleapis.com/oauth2/v2/userinfo")) {
+            return new Response(
+              JSON.stringify({
+                id: "g-1",
+                email: "native@example.com",
+                name: "Native",
+                picture: null,
+              }),
+              { status: 200, headers: { "Content-Type": "application/json" } }
+            );
+          }
+          return new Response("not found", { status: 404 });
+        })
+      );
+    };
+
+    it("erro do provider redireciona pro callback nativo", async () => {
+      const response = await app.inject({
+        method: "GET",
+        url: "/oauth/callback/google",
+        query: { error: "access_denied" },
+        cookies: { oauth_callback: "hexavante://auth/callback" },
+      });
+
+      expect(response.statusCode).toBe(302);
+      expect(response.headers.location).toBe(
+        "hexavante://auth/callback?error=oauth_access_denied"
+      );
+    });
+
+    it("state inválido redireciona pro callback nativo", async () => {
+      const response = await app.inject({
+        method: "GET",
+        url: "/oauth/callback/google",
+        query: { state: "errado" },
+        cookies: { oauth_callback: "hexavante://auth/callback" },
+      });
+
+      expect(response.statusCode).toBe(302);
+      expect(response.headers.location).toBe(
+        "hexavante://auth/callback?error=oauth_invalid_state"
+      );
+    });
+
+    it("falha na troca de token redireciona pro callback nativo", async () => {
+      stubGoogleFetch(400);
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/oauth/callback/google",
+        query: { code: "provider-code", state: "state-1" },
+        cookies: {
+          oauth_state: "state-1",
+          oauth_callback: "hexavante://auth/callback",
+        },
+      });
+
+      expect(response.statusCode).toBe(302);
+      expect(response.headers.location).toBe(
+        "hexavante://auth/callback?error=oauth_token_exchange"
+      );
+    });
+
+    it("erro do provider continua indo pro /login?error= do web", async () => {
+      const response = await app.inject({
+        method: "GET",
+        url: "/oauth/callback/google",
+        query: { error: "access_denied" },
+      });
+
+      expect(response.statusCode).toBe(302);
+      expect(response.headers.location).toBe(
+        `${getWebUrl()}/login?error=oauth_access_denied`
+      );
+    });
+
+    it("sucesso nativo gera one-time code no Redis e redireciona", async () => {
+      stubGoogleFetch();
+      vi.mocked(findOrCreateOAuthUser).mockResolvedValue({
+        id: "user-native-1",
+        fullName: "Native",
+        email: "native@example.com",
+        username: "native",
+        avatarUrl: null,
+        roles: ["USER"],
+      });
+      vi.mocked(createSession).mockResolvedValue({
+        id: "sess-1",
+        token: "session-token-nativo",
+        userId: "user-native-1",
+        expiresAt: new Date(Date.now() + 1000),
+        user: {
+          id: "user-native-1",
+          fullName: "Native",
+          email: "native@example.com",
+          username: "native",
+          banned: false,
+          avatarUrl: null,
+          roles: [{ role: { name: "USER" } }],
+        },
+      });
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/oauth/callback/google",
+        query: { code: "provider-code", state: "state-1" },
+        cookies: {
+          oauth_state: "state-1",
+          oauth_callback: "hexavante://auth/callback",
+        },
+      });
+
+      expect(response.statusCode).toBe(302);
+      const location = new URL(response.headers.location as string);
+      expect(location.protocol).toBe("hexavante:");
+      expect(location.host).toBe("auth");
+      expect(location.pathname).toBe("/callback");
+      expect(location.searchParams.get("provider")).toBe("google");
+
+      const oneTimeCode = location.searchParams.get("code");
+      expect(oneTimeCode).toMatch(/^[0-9a-f]{32}$/);
+      nativeKeys.push(`oauth:native:${oneTimeCode}`);
+
+      // Sessão criada pelo mesmo caminho do fluxo web (cookie continua sendo setado)
+      const sessionCookie = response.cookies.find(
+        (c) => c.name === "__Secure-hexavante.session_token"
+      );
+      expect(sessionCookie?.value).toBe("session-token-nativo");
+
+      const redis = getRedisClient();
+      expect(await redis.get(`oauth:native:${oneTimeCode}`)).toBe(
+        "session-token-nativo"
+      );
+      const ttl = await redis.ttl(`oauth:native:${oneTimeCode}`);
+      expect(ttl).toBeGreaterThan(0);
+      expect(ttl).toBeLessThanOrEqual(120);
+    });
+
+    it("sucesso web continua redirecionando pro callbackURL sem code", async () => {
+      stubGoogleFetch();
+      vi.mocked(findOrCreateOAuthUser).mockResolvedValue({
+        id: "user-web-1",
+        fullName: "Web",
+        email: "web@example.com",
+        username: "web",
+        avatarUrl: null,
+        roles: ["USER"],
+      });
+      vi.mocked(createSession).mockResolvedValue({
+        id: "sess-2",
+        token: "session-token-web",
+        userId: "user-web-1",
+        expiresAt: new Date(Date.now() + 1000),
+        user: {
+          id: "user-web-1",
+          fullName: "Web",
+          email: "web@example.com",
+          username: "web",
+          banned: false,
+          avatarUrl: null,
+          roles: [{ role: { name: "USER" } }],
+        },
+      });
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/oauth/callback/google",
+        query: { code: "provider-code", state: "state-1" },
+        cookies: {
+          oauth_state: "state-1",
+          oauth_callback: `${getWebUrl()}/dashboard`,
+        },
+      });
+
+      expect(response.statusCode).toBe(302);
+      expect(response.headers.location).toBe(`${getWebUrl()}/dashboard`);
+    });
+  });
+
+  describe("POST /oauth/exchange", () => {
+    const validSession = {
+      id: "sess-1",
+      token: "session-token-nativo",
+      userId: "user-1",
+      expiresAt: new Date(Date.now() + 1000),
+      user: {
+        id: "user-1",
+        fullName: "Usuário Teste",
+        email: "teste@example.com",
+        username: "teste",
+        banned: false,
+        avatarUrl: null,
+        roles: [{ role: { name: "USER" } }, { role: { name: "INSTRUCTOR" } }],
+      },
+    };
+
+    it("retorna 400 para code inexistente", async () => {
+      const response = await app.inject({
+        method: "POST",
+        url: "/oauth/exchange",
+        payload: { code: "nao-existe" },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(JSON.parse(response.payload)).toEqual({
+        error: "Código inválido ou expirado",
+      });
+    });
+
+    it("retorna 400 quando o corpo não tem code", async () => {
+      const response = await app.inject({
+        method: "POST",
+        url: "/oauth/exchange",
+        payload: {},
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(JSON.parse(response.payload)).toEqual({
+        error: "Código de troca inválido",
+      });
+    });
+
+    it("devolve token+user no shape do login e é uso único", async () => {
+      const oneTimeCode = "c".repeat(32);
+      const redisKey = `oauth:native:${oneTimeCode}`;
+      nativeKeys.push(redisKey);
+      await getRedisClient().set(redisKey, "session-token-nativo", "EX", 120);
+      vi.mocked(validateSession).mockResolvedValue(validSession);
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/oauth/exchange",
+        payload: { code: oneTimeCode },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(JSON.parse(response.payload)).toEqual({
+        token: "session-token-nativo",
+        user: {
+          id: "user-1",
+          name: "Usuário Teste",
+          email: "teste@example.com",
+          username: "teste",
+          avatarUrl: null,
+          roles: ["USER", "INSTRUCTOR"],
+        },
+      });
+
+      // Uso único: o mesmo code não pode ser trocado de novo
+      const reuse = await app.inject({
+        method: "POST",
+        url: "/oauth/exchange",
+        payload: { code: oneTimeCode },
+      });
+
+      expect(reuse.statusCode).toBe(400);
+      expect(JSON.parse(reuse.payload)).toEqual({
+        error: "Código inválido ou expirado",
+      });
     });
   });
 });

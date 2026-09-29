@@ -229,4 +229,42 @@ export function getAllowedRedirectHosts(): string[] {
   return ALLOWED_REDIRECT_HOSTS;
 }
 
+/**
+ * Regex de scheme customizado de app nativo (Expo/desktop), ex.:
+ * `hexavante://auth/callback`. Só casa com scheme em minúsculas — URLs
+ * `http(s)://` continuam tratadas pelo caminho web (ver regra do
+ * `GET /oauth/:provider`).
+ */
+const NATIVE_SCHEME_REGEX = /^[a-z][a-z0-9+.-]*:\/\//;
+
+/** Allowlist de schemes aceitos como callback nativo (env csv, default `hexavante`). */
+const DEFAULT_NATIVE_SCHEMES = 'hexavante';
+
+/**
+ * Schemes de app nativo permitidos em `callbackURL`, lidos em tempo de uso
+ * (env `OAUTH_NATIVE_SCHEMES`, csv) para permitir configuração por ambiente.
+ */
+export function getNativeCallbackSchemes(): string[] {
+  const raw = process.env.OAUTH_NATIVE_SCHEMES ?? DEFAULT_NATIVE_SCHEMES;
+  return raw
+    .split(',')
+    .map((scheme) => scheme.trim())
+    .filter(Boolean);
+}
+
+/** true se o valor é um callback com scheme customizado de app (`x://...`). */
+export function isNativeCallbackURL(value: string): boolean {
+  return NATIVE_SCHEME_REGEX.test(value);
+}
+
+/**
+ * true se o valor é um callback nativo E o scheme está na allowlist.
+ * Callbacks web/não-nativos retornam false (o chamador deve usar a regra web).
+ */
+export function isAllowedNativeCallbackURL(value: string): boolean {
+  if (!isNativeCallbackURL(value)) return false;
+  const scheme = value.slice(0, value.indexOf(':'));
+  return getNativeCallbackSchemes().includes(scheme);
+}
+
 export { generateUsername };

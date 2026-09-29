@@ -4,9 +4,17 @@ import { FastifyInstance } from 'fastify';
 
  const isDevelopment = process.env.NODE_ENV !== 'production';
 
- export async function rateLimitPlugin(fastify: FastifyInstance) {
-   const redis = getRedisClient();
-   await fastify.register(rateLimit, {
+ /**
+  * Opções padrão do rate-limit (Redis, allowlist de dev, headers).
+  *
+  * `@fastify/rate-limit` é fastify-plugin: ele protege o contexto em que é
+  * registrado — e só ele. Rotas que precisam de limite próprio devem
+  * registrá-lo no MESMO escopo da rota (ex.: `POST /oauth/exchange`);
+  * usar `fastify.register(rateLimitPlugin)` num contexto aninhado não
+  * alcança as rotas irmãs.
+  */
+ export function buildRateLimitOptions() {
+   return {
      max: Number(process.env.RATE_LIMIT_MAX) || 100,
      timeWindow: process.env.RATE_LIMIT_TIME_WINDOW || '1 minute',
      cache: isDevelopment ? 0 : 10000,
@@ -20,6 +28,10 @@ import { FastifyInstance } from 'fastify';
        'x-ratelimit-remaining': true,
        'x-ratelimit-reset': true,
      },
-     redis: redis,
-   });
+     redis: getRedisClient(),
+   };
+ }
+
+ export async function rateLimitPlugin(fastify: FastifyInstance) {
+   await fastify.register(rateLimit, buildRateLimitOptions());
  }
