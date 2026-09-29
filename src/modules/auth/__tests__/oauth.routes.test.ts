@@ -305,6 +305,31 @@ describe("OAuth routes", () => {
         error: "Domínio de redirecionamento não permitido",
       });
     });
+
+    it("aceita o callback do desktop em api.hexavante.com.br", async () => {
+      enableGoogle();
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/oauth/google",
+        query: {
+          callbackURL:
+            "https://api.hexavante.com.br/api/v1/auth/oauth/success",
+        },
+      });
+
+      expect(response.statusCode).toBe(302);
+      expect(
+        (response.headers.location as string).startsWith(
+          "https://accounts.google.com/o/oauth2/v2/auth"
+        )
+      ).toBe(true);
+
+      const callback = response.cookies.find((c) => c.name === "oauth_callback");
+      expect(decodeURIComponent(callback?.value ?? "")).toBe(
+        "https://api.hexavante.com.br/api/v1/auth/oauth/success"
+      );
+    });
   });
 
   describe("GET /oauth/callback/:provider — redirects", () => {

@@ -15,6 +15,9 @@ const ALLOWED_REDIRECT_HOSTS = [
   'hexavante.com.br',
   'app.hexavante.com.br',
   'www.hexavante.com.br',
+  // Domínio da própria API: usado pelo desktop (`auth.ipc.ts`) como
+  // `callbackURL=https://api.hexavante.com.br/api/v1/auth/oauth/success`.
+  'api.hexavante.com.br',
   'localhost',
   '127.0.0.1',
 ];
