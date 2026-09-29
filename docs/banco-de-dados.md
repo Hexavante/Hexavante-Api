@@ -465,9 +465,22 @@ coexistem no schema.
 
 ### 3.1. Rate-limit global (`@fastify/rate-limit` + Redis) — ✅ ATIVO
 
-- **Onde:** `src/plugins/rate-limit.ts` — `fastify.register(rateLimit, { ..., redis })`.
-- **Chave:** gerenciada pelo plugin (`rl:<ip>:<rota>`-like interno do
-  `@fastify/rate-limit`; não é prefixo manual do projeto).
+- **Onde:** `src/plugins/rate-limit.ts` (`registerGlobalRateLimit`), chamado no
+  **escopo raiz** de `src/server.ts` **antes** do registro das rotas.
+- **Escopo (o bug que já foi corrigido):** `@fastify/rate-limit` é
+  fastify-plugin — instala um hook `onRoute` só na instância onde é registrado
+  e nas filhas criadas depois. Registrá-lo dentro de um wrapper
+  (`fastify.register(rateLimitPlugin)`) criava um contexto filho **sem rotas**
+  e nenhuma rota era limitada. Hoje o registro é direto na raiz; rotas com
+  `config: { rateLimit: {…} }` (login 10/min, register 5/min,
+  `POST /oauth/exchange` 10/min) usam **contador próprio** (chave com método+URL)
+  e não incrementam o global — por isso o plugin **não** é registrado de novo no
+  escopo da rota (dobraria a contagem).
+- **Cobertura de `/health` e `/docs`:** decidido manter sob o limite global
+  (100/min/IP é generoso para monitoramento — 1 probe/seg = 60/min). Se um dia
+  precisar isolar, basta `config.rateLimit` (ou `false`) na própria rota.
+- **Chave:** gerenciada pelo plugin — `fastify-rate-limit-<ip>` (global) e
+  `fastify-rate-limit-<METHOD><URL>-<ip>` (rota com `config.rateLimit`).
 - **Limites:** `max = RATE_LIMIT_MAX || 100`, `timeWindow = RATE_LIMIT_TIME_WINDOW || '1 minute'`.
   Dev: `allowList = ['127.0.0.1', '::1', 'localhost']` + `cache: 0`; prod: allow-list
   via env + `cache: 10000` (cache local de 10s para não bater no Redis a cada request).

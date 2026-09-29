@@ -27,7 +27,7 @@ import { securityRoutes } from "./modules/security/routes/security.routes";
 import { prisma } from "./config/prisma";
 import { corsPlugin } from "./plugins/cors";
 import { helmetPlugin } from "./plugins/helmet";
-import { rateLimitPlugin } from "./plugins/rate-limit";
+import { registerGlobalRateLimit } from "./plugins/rate-limit";
 import { compressPlugin } from "./plugins/compress";
 
 const fastify = Fastify({
@@ -43,7 +43,14 @@ fastify.addHook("onRequest", (request, reply, done) => {
 
 await fastify.register(corsPlugin);
 await fastify.register(helmetPlugin);
-await fastify.register(rateLimitPlugin);
+// Rate-limit GLOBAL: registrado na instância raiz ANTES das rotas, para que o
+// hook `onRoute` do plugin alcance todas as rotas (raiz e plugins filhos).
+// Rotas com `config.rateLimit` próprio (login, register, /oauth/exchange)
+// sobrescrevem o limite global com um contador próprio (sem dobrar contagem).
+// Decisão: o limite também cobre `/health` e `/docs` — `RATE_LIMIT_MAX` (100)
+// é generoso para monitoramento (1 probe/seg = 60/min por IP) e manter uma
+// exceção por rota traria mais risco de esquecimento do que benefício.
+await registerGlobalRateLimit(fastify);
 await fastify.register(compressPlugin);
 await fastify.register(cookie, {
   secret: process.env.AUTH_SECRET || 'default-secret-change-in-production',

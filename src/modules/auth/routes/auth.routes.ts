@@ -1,13 +1,16 @@
 import { FastifyInstance } from 'fastify';
 import { AuthController } from '../controller/auth.controller';
 import { AuthService } from '../service/auth.service';
-import { rateLimitPlugin } from '../../../plugins/rate-limit';
 import { asyncHandler } from '../../../lib/errors/errorHandler';
 const authService = new AuthService();
 const authController = new AuthController(authService);
 
 export async function authRoutes(fastify: FastifyInstance) {
-  fastify.register(rateLimitPlugin);
+  // Rate-limit: o registro global mora no escopo raiz (src/server.ts →
+  // registerGlobalRateLimit). Ele cobre estas rotas por herança de escopo, e
+  // o `config.rateLimit` de login/register sobrescreve o limite global com um
+  // contador próprio. NÃO registrar o plugin aqui de novo: duplicaria o hook
+  // e dobraria a contagem (limite efetivo pela metade).
 
   fastify.post('/api/v1/auth/login', {
     config: {

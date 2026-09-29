@@ -1,6 +1,5 @@
 import { FastifyInstance } from 'fastify';
 import { randomBytes } from 'node:crypto';
-import rateLimit from '@fastify/rate-limit';
 import {
   getOAuthConfig,
   getRedirectUri,
@@ -15,7 +14,6 @@ import { findOrCreateOAuthUser } from '../service/oauth.service';
 import { createSession, validateSession } from '../../../lib/session';
 import { getRedisClient } from '../../../config/redis';
 import { asyncHandler } from '../../../lib/errors/errorHandler';
-import { buildRateLimitOptions } from '../../../plugins/rate-limit';
 
 /** TTL (s) do one-time code entregue aos apps nativos no redirect de sucesso. */
 const NATIVE_CODE_TTL_SECONDS = 120;
@@ -83,114 +81,112 @@ export async function oauthRoutes(fastify: FastifyInstance) {
 
   // POST /oauth/exchange — troca o one-time code do redirect nativo por sessão.
   //
-  // Registrado num escopo filho onde o rate-limit é carregado NO MESMO contexto
-  // da rota: `@fastify/rate-limit` só protege o escopo em que é registrado (um
-  // wrapper encapsulado não alcança as rotas irmãs — ver plugins/rate-limit).
-  // Assim a rota nova ganha limite próprio sem alterar as demais rotas OAuth.
-  await fastify.register(async (exchangeScope) => {
-    await exchangeScope.register(rateLimit, buildRateLimitOptions());
-
-    exchangeScope.post('/oauth/exchange', {
-      config: {
-        // Rota pública: 10 tentativas de troca por minuto por IP.
-        rateLimit: {
-          max: 10,
-          timeWindow: 60 * 1000,
-        },
+  // Limite próprio de 10/min via `config.rateLimit`, SEM registro extra do
+  // plugin: o rate-limit do escopo raiz (src/server.ts → registerGlobalRateLimit)
+  // cobre esta rota e, ao ler a config da rota, usa um contador próprio (chave
+  // com método+URL) em vez do contador global. Voltar a registrar o plugin
+  // aqui criaria DOIS hooks com a MESMA chave → dobraria a contagem e o limite
+  // efetivo cairia para 5/min. Ver src/plugins/rate-limit.ts.
+  fastify.post('/oauth/exchange', {
+    config: {
+      // Rota pública: 10 tentativas de troca por minuto por IP.
+      rateLimit: {
+        max: 10,
+        timeWindow: 60 * 1000,
       },
-      // Erros de schema ficam em `request.validationError` para responder 400
-      // em pt-BR no mesmo formato dos demais erros desta rota.
-      attachValidation: true,
-      schema: {
-        summary: "Trocar código OAuth nativo por sessão",
-        tags: ["Auth"],
-        description:
-          "Recebe o `code` entregue no redirect nativo (`<callbackURL>?code=...&provider=...`), consome no Redis (uso único, expira em 120s) e devolve o token de sessão e o usuário no mesmo shape do login. Público: os apps nativos usam o `token` no cookie `__Secure-hexavante.session_token`.",
-        body: {
-          type: "object",
-          required: ["code"],
-          properties: {
-            code: {
-              type: "string",
-              minLength: 1,
-              maxLength: 256,
-              description: "One-time code recebido no redirect nativo",
-            },
+    },
+    // Erros de schema ficam em `request.validationError` para responder 400
+    // em pt-BR no mesmo formato dos demais erros desta rota.
+    attachValidation: true,
+    schema: {
+      summary: "Trocar código OAuth nativo por sessão",
+      tags: ["Auth"],
+      description:
+        "Recebe o `code` entregue no redirect nativo (`<callbackURL>?code=...&provider=...`), consome no Redis (uso único, expira em 120s) e devolve o token de sessão e o usuário no mesmo shape do login. Público: os apps nativos usam o `token` no cookie `__Secure-hexavante.session_token`.",
+      body: {
+        type: "object",
+        required: ["code"],
+        properties: {
+          code: {
+            type: "string",
+            minLength: 1,
+            maxLength: 256,
+            description: "One-time code recebido no redirect nativo",
           },
         },
-        response: {
-          200: {
-            type: "object",
-            properties: {
-              token: { type: "string", description: "Token de sessão (válido por 7 dias)" },
-              user: {
-                type: "object",
-                properties: {
-                  id: { type: "string" },
-                  name: { type: "string" },
-                  email: { type: "string" },
-                  username: { type: ["string", "null"] },
-                  avatarUrl: { type: ["string", "null"] },
-                  roles: { type: "array", items: { type: "string" } },
-                },
+      },
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            token: { type: "string", description: "Token de sessão (válido por 7 dias)" },
+            user: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
+                name: { type: "string" },
+                email: { type: "string" },
+                username: { type: ["string", "null"] },
+                avatarUrl: { type: ["string", "null"] },
+                roles: { type: "array", items: { type: "string" } },
               },
             },
           },
-          400: {
-            type: "object",
-            properties: {
-              error: { type: "string" },
-            },
+        },
+        400: {
+          type: "object",
+          properties: {
+            error: { type: "string" },
           },
         },
       },
-    }, asyncHandler(async (request, reply) => {
-      const body = (request.body ?? {}) as { code?: unknown };
+    },
+  }, asyncHandler(async (request, reply) => {
+    const body = (request.body ?? {}) as { code?: unknown };
 
-      if (
-        request.validationError ||
-        typeof body.code !== "string" ||
-        body.code.length === 0
-      ) {
-        return reply.status(400).send({ error: "Código de troca inválido" });
-      }
+    if (
+      request.validationError ||
+      typeof body.code !== "string" ||
+      body.code.length === 0
+    ) {
+      return reply.status(400).send({ error: "Código de troca inválido" });
+    }
 
-      const redis = getRedisClient();
-      const redisKey = `oauth:native:${body.code}`;
+    const redis = getRedisClient();
+    const redisKey = `oauth:native:${body.code}`;
 
-      // Uso único: GETDEL consome e devolve em uma operação atômica.
-      // Fallback para Redis < 6.2 (sem GETDEL): GET + DEL.
-      let token: string | null = null;
-      try {
-        token = await redis.getdel(redisKey);
-      } catch {
-        token = await redis.get(redisKey);
-        if (token) await redis.del(redisKey);
-      }
+    // Uso único: GETDEL consome e devolve em uma operação atômica.
+    // Fallback para Redis < 6.2 (sem GETDEL): GET + DEL.
+    let token: string | null = null;
+    try {
+      token = await redis.getdel(redisKey);
+    } catch {
+      token = await redis.get(redisKey);
+      if (token) await redis.del(redisKey);
+    }
 
-      if (!token) {
-        return reply.status(400).send({ error: "Código inválido ou expirado" });
-      }
+    if (!token) {
+      return reply.status(400).send({ error: "Código inválido ou expirado" });
+    }
 
-      const session = await validateSession(token);
-      if (!session) {
-        return reply.status(400).send({ error: "Código inválido ou expirado" });
-      }
+    const session = await validateSession(token);
+    if (!session) {
+      return reply.status(400).send({ error: "Código inválido ou expirado" });
+    }
 
-      // Mesmo shape de `data.user` do POST /api/v1/auth/login.
-      return reply.status(200).send({
-        token,
-        user: {
-          id: session.user.id,
-          name: session.user.fullName,
-          email: session.user.email,
-          username: session.user.username,
-          avatarUrl: session.user.avatarUrl,
-          roles: session.user.roles.map((role) => role.role.name),
-        },
-      });
-    }));
-  });
+    // Mesmo shape de `data.user` do POST /api/v1/auth/login.
+    return reply.status(200).send({
+      token,
+      user: {
+        id: session.user.id,
+        name: session.user.fullName,
+        email: session.user.email,
+        username: session.user.username,
+        avatarUrl: session.user.avatarUrl,
+        roles: session.user.roles.map((role) => role.role.name),
+      },
+    });
+  }));
 
   // GET /oauth/:provider — redireciona pro consent do provider
   fastify.get('/oauth/:provider', {
