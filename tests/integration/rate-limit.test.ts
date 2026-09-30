@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
+import { logger } from "../../src/config/logger";
 
 /**
  * Testes de ESCOPO do rate-limit (regressão do bug: o plugin era registrado
@@ -142,5 +143,37 @@ describe("Rate-limit global (escopo raiz)", () => {
     expect(Number(routeCount)).toBe(11);
     // E o contador global continua intocado.
     expect(await getRedisClient().get(`fastify-rate-limit-${ip}`)).toBeNull();
+  });
+
+  it("429 emite logger.warn estruturado (observabilidade do docker logs)", async () => {
+    const ip = uniqueIp();
+    // Spy criado AQUI dentro: só os 429 deste teste interessam (os anteriores
+    // já passaram pela função real, sem serem registrados pelo spy).
+    const warnSpy = vi.spyOn(logger, "warn");
+
+    try {
+      for (let i = 0; i < 5; i++) {
+        const res = await app.inject({ method: "GET", url: "/health", remoteAddress: ip });
+        expect(res.statusCode).toBe(200);
+      }
+
+      const blocked = await app.inject({ method: "GET", url: "/health", remoteAddress: ip });
+      expect(blocked.statusCode).toBe(429);
+
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ip,
+          method: "GET",
+          url: "/health",
+          limit: 5,
+          max: 5,
+          rateLimited: true,
+        }),
+        "Rate limit exceeded"
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 });

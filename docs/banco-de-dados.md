@@ -477,15 +477,24 @@ coexistem no schema.
   e não incrementam o global — por isso o plugin **não** é registrado de novo no
   escopo da rota (dobraria a contagem).
 - **Cobertura de `/health` e `/docs`:** decidido manter sob o limite global
-  (100/min/IP é generoso para monitoramento — 1 probe/seg = 60/min). Se um dia
-  precisar isolar, basta `config.rateLimit` (ou `false`) na própria rota.
+  (1000/min/IP por padrão é generoso para monitoramento — 1 probe/seg = 60/min).
+  Se um dia precisar isolar, basta `config.rateLimit` (ou `false`) na própria rota.
 - **Chave:** gerenciada pelo plugin — `fastify-rate-limit-<ip>` (global) e
   `fastify-rate-limit-<METHOD><URL>-<ip>` (rota com `config.rateLimit`).
-- **Limites:** `max = RATE_LIMIT_MAX || 100`, `timeWindow = RATE_LIMIT_TIME_WINDOW || '1 minute'`.
+- **Limites:** `max = RATE_LIMIT_MAX || 1000` (default 1000: o tráfego
+  server-side do Next sai todo do IP do container e compartilha o bucket global;
+  com 100 a validação de sessão era derrubada e o usuário logado ia pro /login —
+  a env continua sendo o override), `timeWindow = RATE_LIMIT_TIME_WINDOW || '1 minute'`.
   Dev: `allowList = ['127.0.0.1', '::1', 'localhost']` + `cache: 0`; prod: allow-list
   via env + `cache: 10000` (cache local de 10s para não bater no Redis a cada request).
   Headers `x-ratelimit-*` ativos; `continueExceeding: false`, `skipOnError: false`
   (falha do Redis **não** abre a torneira — fail-closed, decisão de segurança).
+- **Observabilidade do 429:** o `errorResponseBuilder` emite
+  `logger.warn({ ip, method, url, limit, max, after, ttl, rateLimited: true },
+  'Rate limit exceeded')` no pino de `src/config/logger.ts` (o mesmo de
+  `request.log` → `docker logs`). Sem isso o 429 só aparecia no nginx
+  (175× lá vs 0 no container). `fastify.log` é no-op neste app
+  (`Fastify({ logger: false })` → `abstract-logging`), por isso o pino global.
 - **Porquê Redis e não MySQL:** rate-limit é escrita por request (INCR por IP).
   No MySQL seriam 100+ writes/min por usuário ativo numa tabela hot — lock,
   WAL e autovacuum para um dado que expira em 60s. No Redis é `INCR` + `EXPIRE`

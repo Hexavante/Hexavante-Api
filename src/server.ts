@@ -47,9 +47,11 @@ await fastify.register(helmetPlugin);
 // hook `onRoute` do plugin alcance todas as rotas (raiz e plugins filhos).
 // Rotas com `config.rateLimit` próprio (login, register, /oauth/exchange)
 // sobrescrevem o limite global com um contador próprio (sem dobrar contagem).
-// Decisão: o limite também cobre `/health` e `/docs` — `RATE_LIMIT_MAX` (100)
-// é generoso para monitoramento (1 probe/seg = 60/min por IP) e manter uma
-// exceção por rota traria mais risco de esquecimento do que benefício.
+// Decisão: o limite também cobre `/health` e `/docs` — `RATE_LIMIT_MAX` (default
+// 1000, override via env) é generoso para monitoramento (1 probe/seg = 60/min por
+// IP) e manter uma exceção por rota traria mais risco de esquecimento do que
+// benefício. O default subiu de 100 → 1000 porque o tráfego server-side do Next
+// (middleware de sessão) sai todo do IP do container e compartilha este bucket.
 await registerGlobalRateLimit(fastify);
 await fastify.register(compressPlugin);
 await fastify.register(cookie, {
