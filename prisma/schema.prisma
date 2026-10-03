@@ -81,6 +81,7 @@ model User {
   notificationSettings   UserNotificationSettings?
   coinTransactions       CoinTransaction[]
   inventory              UserInventory[]
+  payments               Payment[]
   followers              UserFollow[]        @relation("UserFollowers")
   following              UserFollow[]        @relation("UserFollowing")
   socialActivities       SocialActivity[]
@@ -912,6 +913,7 @@ enum CoinSource {
   PREMIUM_GRANT
   LEAGUE_REWARD
   ADMIN
+  PAYMENT
 }
 
 model CoinTransaction {
@@ -930,6 +932,38 @@ model CoinTransaction {
   @@index([userId])
   @@index([createdAt])
   @@map("coin_transactions")
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  REFUNDED
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  userId         String        @map("user_id")
+  provider       String        @default("mercadopago")
+  mpPaymentId    String?       @unique @map("mp_payment_id")
+  mpPreferenceId String?       @map("mp_preference_id")
+  productId      String        @map("product_id")
+  amount         Int
+  currency       String        @default("BRL")
+  coins          Int           @default(0)
+  status         PaymentStatus @default(PENDING)
+  statusDetail   String?       @map("status_detail")
+  paidAt         DateTime?     @map("paid_at")
+  raw            Json?
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@map("payments")
 }
 
 enum XpSource {

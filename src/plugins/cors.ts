@@ -11,6 +11,10 @@ const devOrigins = [
   'http://127.0.0.1:5173',
   'https://hexavante.com.br',
   'https://www.hexavante.com.br',
+  // App web (sessão no cookie __Secure-hexavante.session_token) — a landing
+  // compra moedas com credentials: "include", então o origin precisa estar
+  // na allowlist E receber Access-Control-Allow-Credentials: true.
+  'https://app.hexavante.com.br',
   ...(process.env.BETTER_AUTH_URL ? [process.env.BETTER_AUTH_URL] : []),
 ];
 
@@ -29,7 +33,15 @@ export async function corsPlugin(fastify: FastifyInstance) {
   // This ensures headers survive through Fastify's entire request lifecycle.
   const server = fastify.server;
   if (server) {
-    server.on('request', (req, res) => {
+    // `prependListener` é essencial: o listener do Fastify já está registrado
+    // no `server` (foi ele quem criou) e responde SINCRONAMENTE em alguns
+    // caminhos — ex.: o preflight OPTIONS do notFoundHandler manda 204 no
+    // mesmo tick. Com `server.on(...)` o nosso hook rodava DEPOIS, chamava
+    // `res.setHeader` com headers já enviados e o processo MORRIA com
+    // ERR_HTTP_HEADERS_SENT (request seguinte → conexão recusada).
+    // O guard `headersSent` cobre qualquer outro listener que responda antes.
+    server.prependListener('request', (req, res) => {
+      if (res.headersSent) return;
       const origin = req.headers.origin;
       if (isOriginAllowed(origin)) {
         res.setHeader('Access-Control-Allow-Origin', origin as string);
