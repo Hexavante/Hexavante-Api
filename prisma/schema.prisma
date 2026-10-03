@@ -914,6 +914,7 @@ enum CoinSource {
   LEAGUE_REWARD
   ADMIN
   PAYMENT
+  TUTORIAL_REWARD
 }
 
 model CoinTransaction {
