@@ -241,7 +241,7 @@ Verificação: `curl /` e `/api/v1/platform/stats` + `docker logs` (DB/Redis con
 
 ### Documentação técnica (`docs/`)
 
-`visao-geral` (arquivo `visão-geral.md`), `requisitos-funcionais`, `regras-de-negocio`, `casos-de-uso`, `der-conceitual`, `der-logico`, `glossario`, `stack`, `permissoes`, `instalacao-e-desenvolvimento`, `deploy-producao`, `escopo-mvp`, `banco-de-dados` (+ `auth-flow`).
+`visao-geral` (arquivo `visão-geral.md`), `requisitos-funcionais`, `regras-de-negocio`, `casos-de-uso`, `der-conceitual`, `der-logico`, `glossario`, `stack`, `permissoes`, `instalacao-e-desenvolvimento`, `deploy-producao`, `escopo-mvp`, `banco-de-dados`.
 
 ---
 
