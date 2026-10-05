@@ -16,11 +16,12 @@ A Hexavante API é o backend oficial da plataforma: autenticação, regras de ne
 
 | Área | O que a API faz |
 |------|-----------------|
-| **Autenticação** | Cadastro, login (com verificação 202), OAuth Google/GitHub, sessão em cookie, logout |
+| **Autenticação** | Cadastro, login (com verificação 202), OAuth Google/GitHub/Microsoft/Discord (inclusive exchange nativo p/ apps), sessão em cookie, logout |
 | **Segurança** | Dispositivos confiáveis, 2FA por e-mail, presença/heartbeat, códigos com tentativas |
 | **Conteúdo** | Catálogo publicado (cursos, simulados, tutoriais), stats com cache |
 | **Estudo** | Matrícula, progresso de aulas, favoritos, notas, tentativas de simulado |
 | **Gamificação** | Ranking (com fallback all-time), XP, conquistas, loja e inventário |
+| **Pagamentos** | Catálogo, checkout e webhook do Mercado Pago (moedas e assinatura Hexa) |
 | **Social/tempo real** | Salas ao vivo, notificações, conversas, perfis públicos |
 | **Moderação** | Ações auditadas em `moderation_logs`, rate-limit |
 

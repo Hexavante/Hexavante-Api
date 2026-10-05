@@ -12,7 +12,7 @@ Documento de referência da arquitetura **implementada** no repositório.
 | Framework | Fastify | 5.x (`trustProxy: true`) |
 | ORM/Banco | Prisma + MySQL (MariaDB) | 6.x (`db push` no boot) |
 | Cache/rate-limit | Redis | 7.x |
-| Autenticação | Sessão própria + OAuth Google/GitHub | Cookie 7 dias, domínio `.hexavante.com.br` |
+| Autenticação | Sessão própria + OAuth (Google, GitHub, Microsoft, Discord) | Cookie 7 dias, domínio `.hexavante.com.br` |
 | Validação | Zod | `validateBody/Query/Params` (remove chaves desconhecidas!) |
 | E-mail | Resend (`src/lib/email.ts`) | `RESEND_API_KEY`, `RESEND_FROM` |
 | Logs | Pino | JSON por request |
@@ -46,7 +46,8 @@ Documento de referência da arquitetura **implementada** no repositório.
 | Pasta | Responsabilidade |
 |-------|------------------|
 | `src/server.ts` | Fastify, `trustProxy`, registro de rotas |
-| `src/config/` | Prisma, Redis, logger |
+| `src/config/` | Prisma, Redis, logger, config de OAuth |
 | `src/lib/` | Sessão, e-mail, erros, validação, serializers |
 | `src/middlewares/` | `authenticate`, `optionalAuth`, `authorize` |
 | `src/modules/*/` | Domínio em `routes/controller/service/repository/schemas/types` |
+| `src/modules/payments/` | Mercado Pago: catálogo público, checkout autenticado e webhook idempotente |

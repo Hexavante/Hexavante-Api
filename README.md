@@ -11,10 +11,10 @@
     <a href="https://api.hexavante.com.br/docs">📚 Swagger</a> <em>(protegido — credenciais swagger)</em> · <a href="https://api.hexavante.com.br/api/v1/platform/stats">📊 Stats públicos</a>
   </p>
   <p>
-    <a href="#português">🇧🇷 Português</a> · <a href="#english">🇺🇸 English</a> · <a href="docs/visao-geral.md">📖 Docs</a>
+    <a href="#português">🇧🇷 Português</a> · <a href="#english">🇺🇸 English</a> · <a href="docs/visão-geral.md">📖 Docs</a>
   </p>
   <p>
-    ⚡ <a href="#endpoints-principais">Endpoints</a> · 🚀 <a href="#setup">Setup</a> · 🗄️ <a href="#banco-de-dados">Banco</a> · 🚢 <a href="#deploy">Deploy</a> · 📖 <a href="docs/visao-geral.md">Docs</a>
+    ⚡ <a href="#endpoints-principais">Endpoints</a> · 🚀 <a href="#setup">Setup</a> · 🗄️ <a href="#banco-de-dados">Banco</a> · 🚢 <a href="#deploy">Deploy</a> · 📖 <a href="docs/visão-geral.md">Docs</a>
   </p>
 </div>
 
@@ -72,11 +72,14 @@ Clientes ──HTTPS──▶ Nginx ──▶ hexavante-api:3045 (Fastify)
 ```
 src/
 ├── server.ts                 # Fastify + trustProxy + registro de rotas
-├── config/                   # prisma, redis, logger
+├── config/                   # prisma, redis, logger, oauth (providers)
 ├── lib/                      # session, email, errors, validation, serializers
 ├── middlewares/              # authenticate, optionalAuth, authorize
 └── modules/
-    ├── auth/                 # login (202 p/ verificação), register, OAuth, logout, session
+    ├── auth/                 # login (202 p/ verificação), register, OAuth (Google,
+    │                         # GitHub, Microsoft, Discord), /oauth/providers, /oauth/exchange
+    ├── authorization/        # regras de autorização compartilhadas
+    ├── health/               # GET /health
     ├── security/             # dispositivos, 2FA, presença, heartbeat, códigos
     ├── users/                # perfil público (com presença), /me
     ├── courses/              # catálogo, detalhe, matrícula, progresso, aulas
@@ -86,6 +89,7 @@ src/
     ├── certificates/         # emissão, listagem, verificação
     ├── gamification/         # ranking (fallback all-time), XP, conquistas
     ├── shop/                 # loja, inventário, compras
+    ├── payments/             # Mercado Pago: catálogo, checkout, webhook idempotente
     ├── instructor/           # candidatura, categorias, meus cursos
     ├── live-rooms/           # salas, join/leave, mensagens
     ├── moderation/           # ações auditadas
@@ -106,6 +110,9 @@ prisma/schema.prisma          # Espelho exato do banco (ver docs/der-logico.md)
 | `POST /api/v1/auth/login` | — | Sessão ou `202 {requiresVerification, reason}` |
 | `POST /api/v1/auth/verify-device` | — | Confirma código → sessão + confia + verifica e-mail |
 | `GET /api/v1/auth/session` | Cookie | Sessão atual |
+| `GET /oauth/providers` | — | Providers habilitados (Google, GitHub, Microsoft, Discord) |
+| `GET /oauth/:provider` | — | Inicia o login social (callback com scheme de app nativo) |
+| `POST /oauth/exchange` | — | Troca código OAuth por sessão (desktop/mobile, rate-limit próprio) |
 
 #### 📚 Cursos, Provas e Tutoriais
 
@@ -127,6 +134,15 @@ prisma/schema.prisma          # Espelho exato do banco (ver docs/der-logico.md)
 | Método/rota | Auth | O quê |
 |---|---|---|
 | Módulo `shop/` — ver Swagger | Cookie | Loja, inventário e compras |
+
+#### 💳 Pagamentos (Mercado Pago)
+
+| Método/rota | Auth | O quê |
+|---|---|---|
+| `GET /api/v1/payments/catalog` | — | Pacotes de moedas e assinatura Hexa |
+| `POST /api/v1/payments/checkout` | Cookie | Cria preferência e devolve o link do checkout |
+| `POST /api/v1/payments/webhook` | — | Notificações do MP (idempotente, valida `x-signature`) |
+| `GET /api/v1/payments/:paymentId` | Cookie | Status do próprio pagamento (404 para terceiros) |
 
 #### 🎓 Certificados
 
@@ -165,12 +181,17 @@ npm run dev            # :3045
 |---|---|
 | `DATABASE_URL` | MySQL (`mysql://...`, `%2F` na senha) |
 | `AUTH_SECRET` | Assinatura de sessão/cookies |
-| `REDIS_URL` / `REDIS_PASSWORD` | Cache e rate-limit |
+| `REDIS_URL` / `REDIS_PASSWORD` | Cache, sessão, OTP e rate-limit |
 | `BETTER_AUTH_URL` / `AUTH_URL` | URL pública da API |
 | `CORS_ORIGIN` | Origens permitidas (web, landing, app) |
-| `GOOGLE_/GITHUB_CLIENT_*` | OAuth |
+| `GOOGLE_/GITHUB_/MICROSOFT_/DISCORD_CLIENT_*` | OAuth (cada provider ligado só se tiver id+secret) |
+| `OAUTH_NATIVE_SCHEMES` | Schemes de app aceitos no `callbackURL` (ex. `hexavante`) |
+| `MP_ACCESS_TOKEN` / `MP_WEBHOOK_SECRET` | Mercado Pago (checkout + validação do webhook) |
 | `RESEND_API_KEY` / `RESEND_FROM` | E-mails transacionais |
-| `PORT` / `HOST` | `3045` / `0.0.0.0` |
+| `RATE_LIMIT_MAX` / `RATE_LIMIT_TIME_WINDOW` / `RATE_LIMIT_ALLOW_LIST` | Limite global (default 1000/min) e allowlist |
+| `SWAGGER_USER` / `SWAGGER_PASS` | Basic auth do `/docs` |
+| `SEED_*_PASSWORD` | Senhas usadas só pelo `npm run seed` |
+| `PORT` / `HOST` / `LOG_LEVEL` / `NODE_ENV` | `3045` / `0.0.0.0` / logger / ambiente |
 
 ### Scripts
 
@@ -220,7 +241,7 @@ Verificação: `curl /` e `/api/v1/platform/stats` + `docker logs` (DB/Redis con
 
 ### Documentação técnica (`docs/`)
 
-`visao-geral`, `requisitos-funcionais`, `regras-de-negocio`, `casos-de-uso`, `der-conceitual`, `der-logico`, `glossario`, `stack`, `permissoes`, `instalacao-e-desenvolvimento`, `deploy-producao`, `escopo-mvp` (+ `auth-flow` existente).
+`visao-geral` (arquivo `visão-geral.md`), `requisitos-funcionais`, `regras-de-negocio`, `casos-de-uso`, `der-conceitual`, `der-logico`, `glossario`, `stack`, `permissoes`, `instalacao-e-desenvolvimento`, `deploy-producao`, `escopo-mvp`, `banco-de-dados` (+ `auth-flow`).
 
 ---
 

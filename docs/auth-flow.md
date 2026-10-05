@@ -1,5 +1,15 @@
 # Fluxo de Autenticação — Hexavante API
 
+> [!WARNING]
+> **Documento desatualizado (auditoria de 04/10/2026).** Descreve a arquitetura antiga
+> baseada em Better Auth (`/api/auth/*`, proxy nativo, cookies `hexavante_session_token`),
+> que **não existe mais em `src/`**: hoje a sessão é própria (`src/lib/session.ts` +
+> tabela `sessions`, cookie `__Secure-hexavante.session_token`, 7 dias) e o OAuth roda em
+> `GET /oauth/:provider` + `GET /oauth/callback/:provider` (Google, GitHub, Microsoft,
+> Discord) com `POST /oauth/exchange` para os apps nativos.
+> Enquanto não for reescrito, use o `README.md` e [visão-geral.md](visão-geral.md) como
+> fonte. **Candidato a reescrita ou remoção.**
+
 ## Stack
 
 - **Better Auth** (v1.x) — gerenciamento completo de autenticação

@@ -13,7 +13,7 @@ Documento de referência do comportamento **implementado** nos módulos.
 | RF-03 | Verificação por código de 6 dígitos (e-mail novo, aparelho novo, 2FA): 10 min, 5 tentativas, reenvio 60s, códigos coexistem | `POST /auth/verify-device`, `POST /auth/resend-device-code` |
 | RF-04 | 2FA opcional (ativar com confirmação, desligar autenticado) | `POST /users/me/2fa/enable`, `/confirm`, `DELETE /users/me/2fa` |
 | RF-05 | Aparelhos listáveis e revogáveis (revogar derruba as sessões) | `GET/DELETE /users/me/devices` |
-| RF-06 | OAuth Google/GitHub com auto-confiança de aparelho e e-mail verificado | `/auth/oauth/*` |
+| RF-06 | OAuth Google/GitHub/Microsoft/Discord com auto-confiança de aparelho e e-mail verificado | `GET /oauth/:provider`, `GET /oauth/callback/:provider`, `POST /oauth/exchange` |
 | RF-07 | Presença (`ONLINE/AWAY/STUDYING/DND/INVISIBLE`) + heartbeat; offline após 5 min | `PATCH /users/me/presence`, `POST /users/me/heartbeat` |
 
 ## Conteúdo

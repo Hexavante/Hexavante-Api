@@ -676,7 +676,7 @@ explícito além das unicidades — lookups por `id` usam a PK.)
 **Índices:** `@unique(token)`, `@@index([userId])`.
 
 #### `accounts` (model `Account`)
-**Propósito:** vínculos OAuth (Google/GitHub) + credencial local — padrão Better-Auth.
+**Propósito:** vínculos OAuth (Google, GitHub, Microsoft, Discord) + credencial local.
 **Campos:** `userId`, `providerId @map("provider")`, `accountId @map("provider_account_id")`,
 `password`, `accessToken`/`refreshToken` (`Text`), expirações, `scope`, `idToken` (`Text`).
 **Relações:** `user → Cascade`.
@@ -693,7 +693,8 @@ explícito além das unicidades — lookups por `id` usam a PK.)
 **Propósito:** KV genérico de verificação do Better-Auth (`identifier → value` com expiração).
 **Campos:** `id`, `identifier`, `value` (`Text`), `expiresAt`, `createdAt`, `updatedAt`.
 **Nota:** coexistir `verification_tokens` + `verifications` é herança do Better-Auth
-(duas gerações do mecanismo). Não remover nenhuma sem ler o adapter do Better-Auth.
+(duas gerações do mecanismo). Não remova nenhuma sem conferir os três schemas
+(web, API, admin) e o histórico do banco — o código atual não usa as duas.
 
 #### `roles` / `user_roles` / `permissions` / `role_permissions`
 **Propósito:** RBAC completo (ver §2.8).
@@ -1126,8 +1127,8 @@ nunca o conteúdo integral), `matchedTerm` (80), `identifier` (120 nullable),
    `attempts`; acerto marca `used=true`) → `trustDevice` (upsert em
    `trusted_devices`) → `emailVerified=true` (prova de posse do e-mail) →
    `createSession` → `{ user, session: { token, expiresAt } }`.
-   OAuth (`oauth.routes`, Better-Auth) **confia no dispositivo** (Google/GitHub já
-   verificaram o e-mail) — pula o código.
+   OAuth (`src/modules/auth/routes/oauth.routes.ts`) **confia no dispositivo** (o
+   provedor — Google, GitHub, Microsoft ou Discord — já verificou o e-mail) — pula o código.
 4. **Sessão** (`lib/session.ts`): cookie `__Secure-hexavante.session_token`
    → `validateSession` (`sessions.findUnique({ token })` + expiração com autodelete)
    → `request.auth` nos middlewares (`authenticate.ts`, `optionalAuth.ts`,
