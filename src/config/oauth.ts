@@ -1,8 +1,15 @@
-const WEB_URL =
-  process.env.CORS_ORIGIN?.split(',')[0]?.trim() ||
-  (process.env.NODE_ENV === 'production'
-    ? 'https://app.hexavante.com.br'
-    : 'http://localhost:3000');
+// P1-10: URL principal do app (default de callbackURL e destino de erros
+// web). Env dedicada — NUNCA derivada de CORS_ORIGIN (cujo primeiro item
+// pode ser a landing ou até "*" no compose, quebrando redirects).
+// Leitura preguiçosa (por chamada) para respeitar a env vigente.
+function resolveWebUrl(): string {
+  return (
+    process.env.WEB_URL?.trim() ||
+    (process.env.NODE_ENV === 'production'
+      ? 'https://app.hexavante.com.br'
+      : 'http://localhost:3000')
+  );
+}
 
 const API_URL =
   process.env.BETTER_AUTH_URL ||
@@ -225,7 +232,7 @@ export function getRedirectUri(provider: string): string {
 }
 
 export function getWebUrl(): string {
-  return WEB_URL;
+  return resolveWebUrl();
 }
 
 export function getAllowedRedirectHosts(): string[] {

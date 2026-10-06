@@ -176,4 +176,58 @@ describe("Rate-limit global (escopo raiz)", () => {
       warnSpy.mockRestore();
     }
   });
+
+  // P1-4: rotas sensíveis de segurança têm limite próprio (contador por rota,
+  // sem consumir o global). E-mail inexistente → 200 com UUID falso (P1-3),
+  // então as 5 primeiras passam e a 6ª bloqueia.
+  it("POST /api/v1/auth/forgot-password: 5 ok + 429 na 6ª, contador próprio", async () => {
+    const ip = uniqueIp();
+
+    for (let i = 0; i < 5; i++) {
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/v1/auth/forgot-password",
+        payload: { email: `rate-limit-${RUN}-${seq}-${i}@example.com` },
+        remoteAddress: ip,
+      });
+      expect(res.statusCode).toBe(200);
+    }
+
+    const blocked = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/forgot-password",
+      payload: { email: "rate-limit-bloqueado@example.com" },
+      remoteAddress: ip,
+    });
+    expect(blocked.statusCode).toBe(429);
+    expect(blocked.headers["x-ratelimit-limit"]).toBe("5");
+
+    // Contador próprio da rota, global intocado.
+    expect(await getRedisClient().get(`fastify-rate-limit-${ip}`)).toBeNull();
+  });
+
+  it("POST /api/v1/auth/resend-device-code: 400s contam e a 6ª dá 429", async () => {
+    const ip = uniqueIp();
+
+    for (let i = 0; i < 5; i++) {
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/v1/auth/resend-device-code",
+        payload: { verificationId: "id-inexistente" },
+        remoteAddress: ip,
+      });
+      // ID inexistente → 400 do peekVerificationOwner, mas conta no limite.
+      expect(res.statusCode).toBe(400);
+    }
+
+    const blocked = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/resend-device-code",
+      payload: { verificationId: "id-inexistente" },
+      remoteAddress: ip,
+    });
+    expect(blocked.statusCode).toBe(429);
+    expect(blocked.headers["x-ratelimit-limit"]).toBe("5");
+    expect(await getRedisClient().get(`fastify-rate-limit-${ip}`)).toBeNull();
+  });
 });

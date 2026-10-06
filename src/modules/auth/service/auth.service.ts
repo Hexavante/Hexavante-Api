@@ -3,7 +3,7 @@ import { RegisterInput } from '../schemas/auth.schemas';
 import { BadRequestError, ConflictError } from '../../../lib/errors/AppError';
 import { hashPassword, verifyPassword } from '../../../lib/password';
 import { createSession, deleteSession, validateSession } from '../../../lib/session';
-import { SecurityService, fingerprintDevice, deviceDisplayName } from '../../security/service/security.service';
+import { SecurityService, resolveDeviceFingerprint, deviceDisplayName } from '../../security/service/security.service';
 import { ShopService } from '../../shop/service/shop.service';
 
 const MIN_AGE = 13;
@@ -23,7 +23,7 @@ function assertMinimumAge(birthDate: Date): void {
 }
 
 export class AuthService {
-  async signIn(email: string, password: string, ipAddress?: string, userAgent?: string) {
+  async signIn(email: string, password: string, ipAddress?: string, userAgent?: string, deviceId?: string) {
     const user = await prisma.user.findUnique({
       where: { email },
       include: {
@@ -37,7 +37,8 @@ export class AuthService {
     if (!valid) return null;
 
     const security = new SecurityService();
-    const fingerprint = fingerprintDevice(userAgent, ipAddress);
+    // P1-6: deviceId do cliente quando enviado; senão, fingerprint legado.
+    const fingerprint = resolveDeviceFingerprint({ deviceId, userAgent, ip: ipAddress });
     const trusted = await security.isDeviceTrusted(user.id, fingerprint);
 
     // E-mail não confirmado, dispositivo novo ou 2FA: exige código por e-mail

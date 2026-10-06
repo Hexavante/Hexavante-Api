@@ -1,4 +1,5 @@
-import { createHash, randomInt } from "crypto";
+import { createHash, randomInt, randomUUID } from "crypto";
+import { isIP } from "node:net";
 import { prisma } from "../../../config/prisma";
 import { createSession } from "../../../lib/session";
 import { hashPassword } from "../../../lib/password";
@@ -19,6 +20,48 @@ export function fingerprintDevice(userAgent: string | undefined, ip: string | un
     .update(`${userAgent ?? "unknown"}|${ip ?? "unknown"}`)
     .digest("hex")
     .slice(0, 64);
+}
+
+/**
+ * P1-5: IP usado em fingerprint/auditoria. Aceita o repasse do body
+ * (`deviceIp`, enviado pelo web server-side que enxergaria só o IP interno
+ * do container) SOMENTE se for um IP válido; qualquer outro valor cai para
+ * o IP visto pelo servidor (`request.ip`, com `trustProxy`).
+ *
+ * Nunca é prova de identidade — só metadado para fingerprint/display.
+ * A decisão de autenticação continua sendo o código por e-mail.
+ */
+export function resolveDeviceIp(
+  forwardedIp: string | undefined,
+  requestIp: string,
+): string {
+  return forwardedIp && isIP(forwardedIp) !== 0 ? forwardedIp : requestIp;
+}
+
+/**
+ * P1-6: identidade de dispositivo opt-in via `deviceId` do cliente.
+ *
+ * O fingerprint legado `SHA256(userAgent + IP)` é instável (IP dinâmico,
+ * UA genérico no SSR) e falsificável. Clientes que geram/persistem um id
+ * aleatório (ex.: UUID no storage do app/navegador) podem enviá-lo em
+ * `deviceId`: ele vira o fingerprint (`did:<id>`), estável e sem heurística
+ * invasiva. Sem `deviceId`, cai para o fingerprint legado — 100% compatível
+ * com registros existentes, sem migração e sem mudar o schema.
+ *
+ * O prefixo `did:` impede colisão com os 64 hex do legado. IP/UA seguem
+ * gravados como metadado (display/auditoria), não como identidade.
+ */
+const DEVICE_ID_PREFIX = "did:";
+const MAX_DEVICE_ID_LENGTH = 128;
+
+export function resolveDeviceFingerprint(input: {
+  deviceId?: string;
+  userAgent?: string;
+  ip?: string;
+}): string {
+  const id = (input.deviceId ?? "").trim();
+  if (id) return `${DEVICE_ID_PREFIX}${id.slice(0, MAX_DEVICE_ID_LENGTH)}`;
+  return fingerprintDevice(input.userAgent, input.ip);
 }
 
 export function deviceDisplayName(userAgent: string | undefined, ip: string | undefined): string {
@@ -199,7 +242,9 @@ export class SecurityService {
         where: { id: record.id },
         data: { attempts: { increment: 1 } },
       });
-      throw new BadRequestError("Código incorreto.");
+      // Mensagem única (igual à de registro inexistente/expirado): evita
+      // oráculo que distingue "código errado p/ ID real" de "ID inválido".
+      throw new BadRequestError("Código inválido ou expirado.");
     }
     await prisma.deviceVerificationCode.update({
       where: { id: record.id },
@@ -213,9 +258,12 @@ export class SecurityService {
     code: string,
     userAgent?: string,
     ip?: string,
+    deviceId?: string,
   ) {
     const { userId, fingerprint } = await this.consumeCode(verificationId, code);
-    const fp = fingerprint ?? fingerprintDevice(userAgent, ip);
+    // O fingerprint gravado no login tem precedência (amarra login→verify);
+    // sem ele, deviceId do cliente ou legado UA+IP.
+    const fp = fingerprint ?? resolveDeviceFingerprint({ deviceId, userAgent, ip });
     await this.trustDevice(userId, fp, userAgent, ip);
     // Confirmar o código prova a posse do e-mail
     await prisma.user.updateMany({
@@ -254,13 +302,17 @@ export class SecurityService {
   }
 
   // ── Recuperação de senha ──────────────────────────────
-  // Anti-enumeração: retorna verificationId só se o e-mail existir.
-  async requestPasswordReset(email: string): Promise<{ verificationId: string | null }> {
+  // Anti-enumeração: a resposta é SEMPRE `{ verificationId: <uuid> }`.
+  // Com e-mail existente, cria o registro e envia o código; sem e-mail,
+  // devolve um UUID aleatório sem criar registro nem enviar nada — por fora
+  // é indistinguível, e o UUID falso é inutilizável no reset (consumeCode
+  // responde o mesmo 400 genérico de "código inválido ou expirado").
+  async requestPasswordReset(email: string): Promise<{ verificationId: string }> {
     const user = await prisma.user.findUnique({
       where: { email: email.trim().toLowerCase() },
       select: { id: true, email: true },
     });
-    if (!user) return { verificationId: null };
+    if (!user) return { verificationId: randomUUID() };
     const { verificationId } = await this.issueCode({
       userId: user.id,
       email: user.email,

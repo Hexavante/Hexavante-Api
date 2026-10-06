@@ -5,6 +5,9 @@ export const verifyDeviceSchema = z.object({
   code: z.string().regex(/^\d{6}$/, "Código deve ter 6 dígitos"),
   deviceUa: z.string().max(500).optional(),
   deviceIp: z.string().max(45).optional(),
+  // P1-6: mesmo deviceId do login — amarra a verificação ao mesmo
+  // identificador estável. Opt-in; sem ele vale o fingerprint legado.
+  deviceId: z.string().max(128).optional(),
 });
 
 export const resendDeviceCodeSchema = z.object({

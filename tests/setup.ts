@@ -4,11 +4,17 @@
  */
 import { vi, beforeAll, afterAll } from "vitest";
 
-// Mock environment variables for tests
+// Mock environment variables for tests.
+// Valores lidos do ambiente quando definidos (ex.: CI via TEST_*);
+// os fallbacks são placeholders de TESTE (banco descartável local) e
+// nunca devem ser usados em produção.
 process.env.NODE_ENV = "test";
-process.env.DATABASE_URL = "mysql://root:test_password@localhost:3306/hexavante_test";
-process.env.REDIS_URL = "redis://localhost:6379";
-process.env.AUTH_SECRET = "test-secret-key-for-testing-only-32chars!!";
+process.env.DATABASE_URL =
+  process.env.TEST_DATABASE_URL ??
+  "mysql://root:test_password@localhost:3306/hexavante_test";
+process.env.REDIS_URL = process.env.TEST_REDIS_URL ?? "redis://localhost:6379";
+process.env.AUTH_SECRET =
+  process.env.TEST_AUTH_SECRET ?? "test-secret-key-for-testing-only-32chars!!";
 process.env.BETTER_AUTH_URL = "http://localhost:3045";
 process.env.AUTH_URL = "http://localhost:3045";
 process.env.GOOGLE_CLIENT_ID = "test-google-client-id";

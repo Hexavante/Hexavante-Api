@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import {
   getOAuthConfig,
+  getWebUrl,
   parseTokenResponse,
   OAUTH_PROVIDER_IDS,
 } from "../../../config/oauth";
@@ -133,6 +134,35 @@ describe("getOAuthConfig", () => {
 
       expect(getOAuthConfig("discord")?.enabled).toBe(true);
     });
+  });
+});
+
+/**
+ * P1-10: WEB_URL dedicada — nunca derivada de CORS_ORIGIN.
+ */
+describe("getWebUrl", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("usa WEB_URL quando definida (com trim)", () => {
+    vi.stubEnv("WEB_URL", "  https://app.hexavante.com.br  ");
+    vi.stubEnv("CORS_ORIGIN", "https://hexavante.com.br,https://app.hexavante.com.br");
+    expect(getWebUrl()).toBe("https://app.hexavante.com.br");
+  });
+
+  it("ignora CORS_ORIGIN e cai no default de produção", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("WEB_URL", "");
+    vi.stubEnv("CORS_ORIGIN", "https://hexavante.com.br,https://app.hexavante.com.br");
+    expect(getWebUrl()).toBe("https://app.hexavante.com.br");
+  });
+
+  it("fora de produção o default é localhost:3000", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("WEB_URL", "");
+    vi.stubEnv("CORS_ORIGIN", "");
+    expect(getWebUrl()).toBe("http://localhost:3000");
   });
 });
 

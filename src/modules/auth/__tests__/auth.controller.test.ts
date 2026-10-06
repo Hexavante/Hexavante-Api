@@ -63,11 +63,13 @@ describe("AuthController", () => {
 
       await authController.login(mockRequest, mockReply);
 
+      // P1-6: controller repassa deviceId (ausente → undefined, legado).
       expect(mockAuthService.signIn).toHaveBeenCalledWith(
         "test@example.com",
         "password123",
         "127.0.0.1",
-        "vitest"
+        "vitest",
+        undefined
       );
       expect(mockReply.setCookie).toHaveBeenCalledWith(
         "__Secure-hexavante.session_token",
@@ -96,6 +98,28 @@ describe("AuthController", () => {
         verificationId: "ver-1",
         reason: "DEVICE",
       });
+    });
+
+    it("P1-6: repassa deviceId do body para o signIn", async () => {
+      mockRequest.body = {
+        email: "test@example.com",
+        password: "password123",
+        deviceId: "550e8400-e29b-41d4-a716-446655440000",
+      };
+      mockAuthService.signIn.mockResolvedValue({
+        user: { id: "user-1", name: "Test User", email: "test@example.com" },
+        session: { token: "tok-1", expiresAt: "2026-01-01" },
+      });
+
+      await authController.login(mockRequest, mockReply);
+
+      expect(mockAuthService.signIn).toHaveBeenCalledWith(
+        "test@example.com",
+        "password123",
+        "127.0.0.1",
+        "vitest",
+        "550e8400-e29b-41d4-a716-446655440000"
+      );
     });
 
     it("should throw UnauthorizedError when credentials are invalid", async () => {

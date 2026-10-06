@@ -1202,9 +1202,12 @@ Tabelas: `trusted_devices`, `device_verification_codes`, `sessions`, `users`.
 ### 5.5. Recuperação de senha
 
 1. `requestPasswordReset(email)`: lookup por e-mail normalizado
-   (`trim().toLowerCase()`); **anti-enumeração**: e-mail inexistente retorna
-   `{ verificationId: null }` com o mesmo formato (o atacante não distingue
-   "e-mail cadastrado" de "não cadastrado" pela resposta).
+   (`trim().toLowerCase()`); **anti-enumeração**: a resposta é sempre
+   `{ verificationId: <uuid> }` — com e-mail existente cria o registro e envia
+   o código; com e-mail inexistente devolve UUID aleatório sem registro e sem
+   e-mail (o atacante não distingue "cadastrado" de "não cadastrado"; o UUID
+   falso falha no reset com o mesmo 400 genérico). Códigos errados e registros
+   inexistentes/expirados usam a mesma mensagem "Código inválido ou expirado.".
 2. `issueCode(purpose=PASSWORD_RESET)` (sem fingerprint) → e-mail com código 10 min.
 3. `resetPassword(verificationId, code, newPassword)`: `consumeCode` + checa
    `purpose === 'PASSWORD_RESET'` (código de dispositivo **não** reseta senha —

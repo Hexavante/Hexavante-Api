@@ -330,6 +330,42 @@ describe("OAuth routes", () => {
         "https://api.hexavante.com.br/api/v1/auth/oauth/success"
       );
     });
+
+    it("P1-11: scheme javascript:// é rejeitado com 400", async () => {
+      enableGoogle();
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/oauth/google",
+        query: { callbackURL: "javascript://evil/x" },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(JSON.parse(response.payload)).toEqual({
+        error: "Scheme de callback não permitido",
+      });
+      expect(
+        response.cookies.some((c) => c.name === "oauth_callback")
+      ).toBe(false);
+    });
+
+    it("P1-11: callbackURL acima de 2048 chars é rejeitada com 400", async () => {
+      enableGoogle();
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/oauth/google",
+        query: { callbackURL: `https://app.hexavante.com.br/${"a".repeat(2100)}` },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(JSON.parse(response.payload)).toEqual({
+        error: "callbackURL muito longa",
+      });
+      expect(
+        response.cookies.some((c) => c.name === "oauth_callback")
+      ).toBe(false);
+    });
   });
 
   describe("GET /oauth/callback/:provider — redirects", () => {
@@ -424,6 +460,21 @@ describe("OAuth routes", () => {
       expect(response.headers.location).toBe(
         `${getWebUrl()}/login?error=oauth_access_denied`
       );
+    });
+
+    it("P1-11: erro do provider com CRLF é sanitizado no Location", async () => {
+      // Query crua na URL (como chega no fio): o parser decodifica %0d%0a
+      // para CR/LF de verdade; o sanitizador deve remover tudo fora de
+      // [A-Za-z0-9_.-] antes de montar o Location.
+      const response = await app.inject({
+        method: "GET",
+        url: "/oauth/callback/google?error=x%0d%0aSet-Cookie:%20evil=1",
+      });
+
+      expect(response.statusCode).toBe(302);
+      const location = response.headers.location as string;
+      expect(location).toBe(`${getWebUrl()}/login?error=oauth_xSet-Cookieevil1`);
+      expect(location).not.toMatch(/[\r\n]/);
     });
 
     it("sucesso nativo gera one-time code no Redis e redireciona", async () => {

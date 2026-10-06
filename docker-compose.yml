@@ -1,15 +1,40 @@
+# ===================================================================
+#  AVISO DE SEGURANÇA — CREDENCIAL HARD.CODED COMPROMETIDA
+#
+#  Uma credencial de banco de dados REAL estava hardcoded neste
+#  arquivo (campo DATABASE_URL, serviço "api") e é considerada
+#  COMPROMETIDA: a senha já apareceu no histórico.
+#
+#  AÇÕES REQUERIDAS:
+#
+#   1. Rotacione a senha NO AMBIENTE REAL (MySQL e Redis) ANTES ou
+#      IMEDIATAMENTE APÓS o deploy com esta nova compose.
+#   2. Defina a nova senha via variável MYSQL_PASSWORD (service mysql)
+#      e, se necessário, overwrite da DATABASE_URL por variável externa
+#      (docker compose -e DATABASE_URL=... ou arquivo .env NÃO versionado).
+#   3. A senha ANTERIOR NUNCA MAIS deve ser usada em lugar nenhum
+#      (deploy, CI, scripts, logs, memória).
+#   4. .env (variáveis de ambiente locais) NUNCA deve ser
+#      versionado — ele já está no .gitignore.
+#
+#  As portas 3306 (mysql) e 6379 (redis) foram removidas da exposição
+#  pública; os serviços agora usam apenas a rede interna
+#  "hexavante-net". O container da API (3045) é o único acessado de
+#  fora, via Nginx.
+# ===================================================================
+
 services:
   mysql:
     image: mariadb:11
     container_name: hexavante-mysql
     restart: unless-stopped
+    networks:
+      - hexavante-net
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: hexavante
       MYSQL_USER: hexavante
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    ports:
-      - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     command: >
@@ -27,10 +52,10 @@ services:
     image: redis:7-alpine
     container_name: hexavante-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
+    networks:
+      - hexavante-net
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -47,16 +72,30 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      - hexavante-net
     environment:
-      DATABASE_URL: "mysql://hexavante:gBcfTf%2F0REh18S4rpr1MIzyt379g3XuT@mysql:3306/hexavante"
+      # DATABASE_URL herdada das credenciais do serviço mysql;
+      # sobrescreva via variável externa (docker run -e DATABASE_URL=...) se necessário.
+      # Senha com caracteres especiais (ex: "/") deve vir URL-encodeada na URL completa.
+      DATABASE_URL: "${DATABASE_URL:-mysql://hexavante:${MYSQL_PASSWORD}@mysql:3306/hexavante}"
       AUTH_SECRET: ${AUTH_SECRET}
+      # P1-10: URL do app web para o OAuth (default de callbackURL).
+      # Separada de CORS_ORIGIN, que serve só para CORS.
+      WEB_URL: "${WEB_URL:-https://app.hexavante.com.br}"
       REDIS_URL: redis://redis:6379
       PORT: 3045
       HOST: 0.0.0.0
       NODE_ENV: production
-      CORS_ORIGIN: "*"
+      # P1-9: lista explícita (com credentials:true o "*" nunca igualaria
+      # um Origin real). Inclui landing, app web e admin (painel).
+      CORS_ORIGIN: "https://hexavante.com.br,https://www.hexavante.com.br,https://app.hexavante.com.br,https://painel.hexavante.com.br"
     ports:
       - "3045:3045"
+
+networks:
+  hexavante-net:
+    driver: bridge
 
 volumes:
   mysql_data:

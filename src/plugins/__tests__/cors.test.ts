@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { corsPlugin } from '../cors';
 
@@ -90,5 +90,103 @@ describe('corsPlugin', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('access-control-allow-origin')).toBeNull();
     await response.text();
+  });
+});
+
+/**
+ * P1-9: allowlist de produção — sem localhost/127.0.0.1, sem "*",
+ * com os hosts próprios (landing, app, admin).
+ *
+ * O módulo computa a allowlist no load, então cada caso reimporta
+ * o plugin com a env correspondente (vi.resetModules + import dinâmico).
+ */
+describe('corsPlugin em produção', () => {
+  async function bootProdApp(extraEnv: Record<string, string> = {}) {
+    vi.stubEnv('NODE_ENV', 'production');
+    for (const [key, value] of Object.entries(extraEnv)) {
+      vi.stubEnv(key, value);
+    }
+    vi.resetModules();
+    const { corsPlugin: prodCors } = await import('../cors');
+    const prodApp = Fastify({ logger: false });
+    await prodApp.register(prodCors);
+    prodApp.get('/ping', async () => ({ ok: true }));
+    await prodApp.listen({ port: 0, host: '127.0.0.1' });
+    const address = prodApp.server.address();
+    if (address === null || typeof address === 'string') throw new Error('sem porta');
+    return { prodApp, url: `http://127.0.0.1:${address.port}` };
+  }
+
+  async function closeProdApp(prodApp: FastifyInstance) {
+    await prodApp.close();
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  }
+
+  it('localhost NÃO recebe allow-origin em produção', async () => {
+    const { prodApp, url } = await bootProdApp();
+    try {
+      const response = await fetch(`${url}/ping`, {
+        headers: { origin: 'http://localhost:3000' },
+      });
+      expect(response.status).toBe(200);
+      expect(response.headers.get('access-control-allow-origin')).toBeNull();
+      await response.text();
+    } finally {
+      await closeProdApp(prodApp);
+    }
+  });
+
+  it('127.0.0.1 NÃO recebe allow-origin em produção', async () => {
+    const { prodApp, url } = await bootProdApp();
+    try {
+      const response = await fetch(`${url}/ping`, {
+        headers: { origin: 'http://127.0.0.1:5173' },
+      });
+      expect(response.headers.get('access-control-allow-origin')).toBeNull();
+      await response.text();
+    } finally {
+      await closeProdApp(prodApp);
+    }
+  });
+
+  it('hosts próprios recebem allow-origin + credentials em produção', async () => {
+    const { prodApp, url } = await bootProdApp();
+    try {
+      for (const origin of [
+        'https://hexavante.com.br',
+        'https://www.hexavante.com.br',
+        'https://app.hexavante.com.br',
+        'https://painel.hexavante.com.br',
+      ]) {
+        const response = await fetch(`${url}/ping`, { headers: { origin } });
+        expect(response.headers.get('access-control-allow-origin')).toBe(origin);
+        expect(response.headers.get('access-control-allow-credentials')).toBe('true');
+        await response.text();
+      }
+    } finally {
+      await closeProdApp(prodApp);
+    }
+  });
+
+  it('CORS_ORIGIN="*" não abre nada (é descartado)', async () => {
+    const { prodApp, url } = await bootProdApp({ CORS_ORIGIN: '*' });
+    try {
+      const evil = await fetch(`${url}/ping`, {
+        headers: { origin: 'https://evil.com' },
+      });
+      expect(evil.headers.get('access-control-allow-origin')).toBeNull();
+      await evil.text();
+
+      const app = await fetch(`${url}/ping`, {
+        headers: { origin: 'https://app.hexavante.com.br' },
+      });
+      expect(app.headers.get('access-control-allow-origin')).toBe(
+        'https://app.hexavante.com.br'
+      );
+      await app.text();
+    } finally {
+      await closeProdApp(prodApp);
+    }
   });
 });

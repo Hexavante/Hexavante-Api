@@ -4,3 +4,14 @@ node_modules
 dist/
 /generated/prisma
 .next
+
+# OpenCode / IA — nunca commitar
+.opencode/
+AGENTS.md
+CLAUDE.md
+CONTEXT.md
+.cursor/
+.cursorrules
+.github/copilot-instructions.md
+.aider*
+.mcp.json

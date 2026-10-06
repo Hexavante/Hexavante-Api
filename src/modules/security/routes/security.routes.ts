@@ -8,9 +8,14 @@ export async function securityRoutes(fastify: FastifyInstance) {
   const securityService = new SecurityService();
   const securityController = new SecurityController(securityService);
 
+  // Limites próprios via `config.rateLimit` (mesmo padrão de login/register/
+  // /oauth/exchange): o rate-limit global do escopo raiz usa um contador
+  // próprio por rota e NÃO incrementa o global. NÃO registrar o plugin aqui.
   fastify.post(
     "/api/v1/auth/forgot-password",
     {
+      // Pública + envia e-mail: 5 solicitações/min por IP.
+      config: { rateLimit: { max: 5, timeWindow: 60 * 1000 } },
       schema: {
         summary: "Solicitar código de redefinição de senha",
         tags: ["Security"],
@@ -22,6 +27,9 @@ export async function securityRoutes(fastify: FastifyInstance) {
   fastify.post(
     "/api/v1/auth/reset-password",
     {
+      // Tentativa de código: 10/min por IP (além do teto de 5 tentativas
+      // por registro em consumeCode).
+      config: { rateLimit: { max: 10, timeWindow: 60 * 1000 } },
       schema: {
         summary: "Redefinir senha com código",
         tags: ["Security"],
@@ -33,6 +41,8 @@ export async function securityRoutes(fastify: FastifyInstance) {
   fastify.post(
     "/api/v1/auth/verify-device",
     {
+      // Tentativa de código: 10/min por IP (além do teto por registro).
+      config: { rateLimit: { max: 10, timeWindow: 60 * 1000 } },
       schema: {
         summary: "Verificar dispositivo com código",
         tags: ["Security"],
@@ -44,6 +54,8 @@ export async function securityRoutes(fastify: FastifyInstance) {
   fastify.post(
     "/api/v1/auth/resend-device-code",
     {
+      // Reenvio de e-mail (já com cooldown de 60s): 5/min por IP.
+      config: { rateLimit: { max: 5, timeWindow: 60 * 1000 } },
       schema: {
         summary: "Reenviar código de verificação",
         tags: ["Security"],

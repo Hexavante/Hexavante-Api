@@ -183,6 +183,7 @@ npm run dev            # :3045
 | `AUTH_SECRET` | Assinatura de sessão/cookies |
 | `REDIS_URL` / `REDIS_PASSWORD` | Cache, sessão, OTP e rate-limit |
 | `BETTER_AUTH_URL` / `AUTH_URL` | URL pública da API |
+| `WEB_URL` | URL do app web (default de `callbackURL` e erros web no OAuth) |
 | `CORS_ORIGIN` | Origens permitidas (web, landing, app) |
 | `GOOGLE_/GITHUB_/MICROSOFT_/DISCORD_CLIENT_*` | OAuth (cada provider ligado só se tiver id+secret) |
 | `OAUTH_NATIVE_SCHEMES` | Schemes de app aceitos no `callbackURL` (ex. `hexavante`) |
@@ -209,6 +210,13 @@ npm run dev            # :3045
 Schema = espelho exato da produção (`migrate diff` vazio). Mudança de model/campo/enum/índice: editar **os dois** schemas (API + web), validar, gerar, typecheck, testar. Ver `docs/der-logico.md`.
 
 ### Deploy
+
+> [!CAUTION]
+> A senha do banco que estava hardcoded em `docker-compose.yml` é considerada
+> **comprometida** — rotacione `MYSQL_PASSWORD`/`MYSQL_ROOT_PASSWORD` (e `REDIS_PASSWORD`,
+> se houver) no ambiente real antes ou imediatamente após o deploy. Detalhes em
+> `docs/deploy-producao.md`. MySQL (3306) e Redis (6379) não expõem portas públicas:
+> falam com a API só pela rede interna `hexavante-net`.
 
 ```bash
 git pull                       # em /opt/hexavante-api

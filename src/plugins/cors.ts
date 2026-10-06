@@ -1,27 +1,41 @@
 import { FastifyInstance } from 'fastify';
 
-const isDevelopment = process.env.NODE_ENV !== 'production';
+const isProduction = process.env.NODE_ENV === 'production';
 
-const devOrigins = [
+// Origens locais de desenvolvimento. NUNCA entram na allowlist de produção.
+const localhostOrigins = [
   'http://localhost:3000',
   'http://localhost:3045',
   'http://localhost:5173',
   'http://127.0.0.1:3000',
   'http://127.0.0.1:3045',
   'http://127.0.0.1:5173',
-  'https://hexavante.com.br',
-  'https://www.hexavante.com.br',
-  // App web (sessão no cookie __Secure-hexavante.session_token) — a landing
-  // compra moedas com credentials: "include", então o origin precisa estar
-  // na allowlist E receber Access-Control-Allow-Credentials: true.
-  'https://app.hexavante.com.br',
-  ...(process.env.BETTER_AUTH_URL ? [process.env.BETTER_AUTH_URL] : []),
 ];
 
+// Hosts próprios atendidos com credentials em produção: landing, app web
+// (sessão no cookie __Secure-hexavante.session_token) e admin (painel).
+// A landing compra moedas com credentials: "include", então o origin precisa
+// estar na allowlist E receber Access-Control-Allow-Credentials: true.
+const prodBaseOrigins = [
+  'https://hexavante.com.br',
+  'https://www.hexavante.com.br',
+  'https://app.hexavante.com.br',
+  'https://painel.hexavante.com.br',
+];
+
+// Origens extras por ambiente. "*" é descartado de propósito: com
+// credentials:true o navegador exige a origin espelhada de forma exata, e
+// "*" nunca igualaria um Origin real (só mascarava configuração errada).
+const envOrigins = (process.env.CORS_ORIGIN?.split(',') || [])
+  .map((origin) => origin.trim())
+  .filter((origin) => origin.length > 0 && origin !== '*');
+
+const selfOrigins = process.env.BETTER_AUTH_URL ? [process.env.BETTER_AUTH_URL] : [];
+
 const allowedOrigins = new Set(
-  isDevelopment
-    ? devOrigins
-    : [...devOrigins, ...(process.env.CORS_ORIGIN?.split(',') || [])]
+  isProduction
+    ? [...prodBaseOrigins, ...envOrigins, ...selfOrigins]
+    : [...localhostOrigins, ...prodBaseOrigins, ...envOrigins, ...selfOrigins]
 );
 
 function isOriginAllowed(origin: string | undefined): boolean {

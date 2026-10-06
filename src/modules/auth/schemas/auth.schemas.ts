@@ -7,6 +7,9 @@ export const loginSchema = z.object({
   // desconhecidas, então precisam estar declarados aqui)
   deviceUa: z.string().max(500).optional(),
   deviceIp: z.string().max(45).optional(),
+  // P1-6: id aleatório gerado/persistido pelo cliente (ex.: UUID). Opt-in:
+  // sem ele, o fingerprint legado (UA+IP) continua valendo.
+  deviceId: z.string().max(128).optional(),
 });
 
 export const registerSchema = z.object({

@@ -26,6 +26,7 @@ import { liveRoomRoutes } from "./modules/live-rooms/routes/live-room.routes";
 import { moderationRoutes } from "./modules/moderation/routes/moderation.routes";
 import { securityRoutes } from "./modules/security/routes/security.routes";
 import { prisma } from "./config/prisma";
+import { requireAuthSecret, resolveDocsAuth } from "./config/env";
 import { corsPlugin } from "./plugins/cors";
 import { helmetPlugin } from "./plugins/helmet";
 import { registerGlobalRateLimit } from "./plugins/rate-limit";
@@ -56,71 +57,82 @@ await fastify.register(helmetPlugin);
 await registerGlobalRateLimit(fastify);
 await fastify.register(compressPlugin);
 await fastify.register(cookie, {
-  secret: process.env.AUTH_SECRET || 'default-secret-change-in-production',
+  // P1-1: sem fallback previsível — em produção, ausente/curto recusa o startup.
+  secret: requireAuthSecret(),
   hook: 'onRequest',
   parseOptions: {},
 });
 
-const DOCS_USER = process.env.SWAGGER_USER || 'hexavante';
-const DOCS_PASS = process.env.SWAGGER_PASS || 'swagger2026';
-
-await fastify.register(swagger, {
-  openapi: {
-    info: {
-      title: "Hexavante API",
-      description: "API da Plataforma Educacional Hexavante",
-      version: "1.0.0",
-    },
-    servers: [
-      {
-        url: `https://api.hexavante.com.br`,
-        description: "Produção",
+// P1-2: sem usuário/senha padrão. Em produção o /docs só existe com
+// SWAGGER_USER + SWAGGER_PASS explícitos; em dev/teste existe sempre e,
+// sem credenciais, fica aberto (ambiente local).
+const docsAuth = resolveDocsAuth();
+if (!docsAuth.enabled) {
+  logger.warn("Swagger /docs desabilitado em produção: defina SWAGGER_USER e SWAGGER_PASS para expor a documentação.");
+} else {
+  await fastify.register(swagger, {
+    openapi: {
+      info: {
+        title: "Hexavante API",
+        description: "API da Plataforma Educacional Hexavante",
+        version: "1.0.0",
       },
-      {
-        url: `http://localhost:${process.env.PORT || 3045}`,
-        description: "Desenvolvimento",
-      },
-    ],
-    components: {
-      securitySchemes: {
-        session: {
-          type: "apiKey",
-          in: "cookie",
-          name: "__Secure-hexavante.session_token",
-          description: "Sessão autenticada via cookie (obtida em POST /api/v1/auth/login)",
+      servers: [
+        {
+          url: `https://api.hexavante.com.br`,
+          description: "Produção",
+        },
+        {
+          url: `http://localhost:${process.env.PORT || 3045}`,
+          description: "Desenvolvimento",
+        },
+      ],
+      components: {
+        securitySchemes: {
+          session: {
+            type: "apiKey",
+            in: "cookie",
+            name: "__Secure-hexavante.session_token",
+            description: "Sessão autenticada via cookie (obtida em POST /api/v1/auth/login)",
+          },
         },
       },
     },
-  },
-});
+  });
 
-await fastify.register(swaggerUi, {
-  routePrefix: "/docs",
-  uiConfig: {
-    docExpansion: "list",
-    deepLinking: true,
-    persistAuthorization: true,
-  },
-  uiHooks: {
-    onRequest: (request, reply, done) => {
-      const auth = request.headers.authorization;
-      if (!auth || !auth.startsWith("Basic ")) {
-        reply.header("WWW-Authenticate", 'Basic realm="Hexavante API Docs"');
-        reply.code(401).send({ error: "Autenticação necessária" });
-        done(new Error("Unauthorized"));
-        return;
-      }
-      const decoded = Buffer.from(auth.slice(6), "base64").toString();
-      const [user, pass] = decoded.split(":");
-      if (user === DOCS_USER && pass === DOCS_PASS) {
-        done();
-      } else {
-        reply.code(401).send({ error: "Credenciais inválidas" });
-        done(new Error("Unauthorized"));
-      }
+  await fastify.register(swaggerUi, {
+    routePrefix: "/docs",
+    uiConfig: {
+      docExpansion: "list",
+      deepLinking: true,
+      persistAuthorization: true,
     },
-  },
-});
+    uiHooks: {
+      onRequest: (request, reply, done) => {
+        // Dev/teste sem credenciais: /docs aberto (ambiente local).
+        if (!docsAuth.user || !docsAuth.pass) {
+          done();
+          return;
+        }
+        const auth = request.headers.authorization;
+        if (!auth || !auth.startsWith("Basic ")) {
+          reply.header("WWW-Authenticate", 'Basic realm="Hexavante API Docs"');
+          reply.code(401).send({ error: "Autenticação necessária" });
+          done(new Error("Unauthorized"));
+          return;
+        }
+        const decoded = Buffer.from(auth.slice(6), "base64").toString();
+        const [user, pass] = decoded.split(":");
+        if (user === docsAuth.user && pass === docsAuth.pass) {
+          done();
+        } else {
+          reply.code(401).send({ error: "Credenciais inválidas" });
+          done(new Error("Unauthorized"));
+        }
+      },
+    },
+  });
+}
 
 fastify.addSchema({
   $id: "HealthCheck",

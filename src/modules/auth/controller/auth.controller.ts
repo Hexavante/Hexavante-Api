@@ -4,24 +4,27 @@ import { UnauthorizedError } from '../../../lib/errors/AppError';
 import { loginSchema, registerSchema } from '../schemas/auth.schemas';
 import { validateBody } from '../../../lib/validation/validate';
 import { parseSessionToken } from '../../../lib/session';
+import { resolveDeviceIp } from '../../security/service/security.service';
 
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   async login(request: FastifyRequest, reply: FastifyReply): Promise<void> {
     await validateBody(loginSchema)(request, reply);
-    const body = request.body as { email: string; password: string; deviceUa?: string; deviceIp?: string };
+    const body = request.body as { email: string; password: string; deviceUa?: string; deviceIp?: string; deviceId?: string };
 
     // O app web repassa UA/IP reais do navegador (o fetch server-side
     // chegaria aqui como UA "node" e IP interno para todo mundo).
+    // P1-5: o IP do body só vale se for IP válido; senão, IP do servidor.
     const userAgent = body.deviceUa || (request.headers['user-agent'] as string | undefined);
-    const ipAddress = body.deviceIp || request.ip;
+    const ipAddress = resolveDeviceIp(body.deviceIp, request.ip);
 
     const result = await this.authService.signIn(
       body.email,
       body.password,
       ipAddress,
       userAgent,
+      body.deviceId,
     );
     if (!result) {
       throw new UnauthorizedError('Credenciais inválidas');

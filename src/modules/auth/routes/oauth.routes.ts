@@ -19,6 +19,22 @@ import { asyncHandler } from '../../../lib/errors/errorHandler';
 const NATIVE_CODE_TTL_SECONDS = 120;
 
 /**
+ * P1-11: teto de tamanho para `callbackURL` (evita cookie overflow/431
+ * e URLs absurdas gravadas no cookie `oauth_callback`).
+ */
+const MAX_CALLBACK_URL_LENGTH = 2048;
+
+/**
+ * P1-11: o código de erro vindo do provider é refletido no `Location` do
+ * redirect — aceita só `[A-Za-z0-9_.-]` para impedir CRLF/header injection
+ * e conteúdo arbitrário na URL (ex.: `oauth_access_denied` passa intacto).
+ */
+function sanitizeOAuthErrorCode(error: string): string {
+  const clean = error.replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 64);
+  return clean || "oauth_error";
+}
+
+/**
  * Monta a URL de redirect para um callback nativo (`scheme://...`),
  * preservando o scheme e sobrescrevendo os parâmetros
  * (ex.: `?error=...` ou `?code=...&provider=...`).
@@ -216,6 +232,10 @@ export async function oauthRoutes(fastify: FastifyInstance) {
     let callbackURL: string;
     const ALLOWED = getAllowedRedirectHosts();
 
+    if (rawCallbackURL && rawCallbackURL.length > MAX_CALLBACK_URL_LENGTH) {
+      return reply.status(400).send({ error: 'callbackURL muito longa' });
+    }
+
     if (!rawCallbackURL) {
       callbackURL = `${webOrigin}/`;
     } else if (rawCallbackURL.startsWith('http')) {
@@ -306,9 +326,9 @@ export async function oauthRoutes(fastify: FastifyInstance) {
       return redirectWithError('provider_not_found');
     }
 
-    // Erro do provider
+    // Erro do provider (sanitizado: vai para o header Location).
     if (error) {
-      return redirectWithError(`oauth_${error}`);
+      return redirectWithError(sanitizeOAuthErrorCode(`oauth_${error}`));
     }
 
     // Verifica state
