@@ -8,6 +8,9 @@ export interface IUserRepository {
   findPublicProfile(username: string): Promise<PublicProfile | null>;
   update(id: string, data: UpdateProfileInput): Promise<UserProfile>;
   softDelete(id: string): Promise<void>;
+  findMediaUrls(id: string): Promise<{ avatarUrl: string | null; bannerUrl: string | null }>;
+  updateAvatarUrl(id: string, avatarUrl: string): Promise<{ avatarUrl: string | null }>;
+  updateBannerUrl(id: string, bannerUrl: string): Promise<{ bannerUrl: string | null }>;
 }
 
 export class UserRepository implements IUserRepository {
@@ -125,6 +128,35 @@ export class UserRepository implements IUserRepository {
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
+  }
+
+  /** URLs atuais de mídia (para apagar a anterior após troca bem-sucedida). */
+  async findMediaUrls(id: string): Promise<{ avatarUrl: string | null; bannerUrl: string | null }> {
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: { avatarUrl: true, bannerUrl: true },
+    });
+    return { avatarUrl: user?.avatarUrl ?? null, bannerUrl: user?.bannerUrl ?? null };
+  }
+
+  /** Persiste o avatar (URL absoluta gerada pelo servidor). */
+  async updateAvatarUrl(id: string, avatarUrl: string): Promise<{ avatarUrl: string | null }> {
+    const user = await prisma.user.update({
+      where: { id },
+      data: { avatarUrl },
+      select: { avatarUrl: true },
+    });
+    return { avatarUrl: user.avatarUrl };
+  }
+
+  /** Persiste o banner (URL absoluta gerada pelo servidor). */
+  async updateBannerUrl(id: string, bannerUrl: string): Promise<{ bannerUrl: string | null }> {
+    const user = await prisma.user.update({
+      where: { id },
+      data: { bannerUrl },
+      select: { bannerUrl: true },
+    });
+    return { bannerUrl: user.bannerUrl };
   }
 
   async softDelete(id: string): Promise<void> {

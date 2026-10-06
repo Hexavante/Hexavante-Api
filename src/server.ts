@@ -18,6 +18,7 @@ import { paymentsRoutes } from "./modules/payments/routes/payments.routes";
 import { examRoutes } from "./modules/exams/routes/exam.routes";
 import { tutorialRoutes } from "./modules/tutorials/routes/tutorial.routes";
 import { platformRoutes } from "./modules/platform/routes/platform.routes";
+import { mediaRoutes } from "./modules/media/routes/media.routes";
 import { certificateRoutes } from "./modules/certificates/routes/certificate.routes";
 import { notificationRoutes } from "./modules/notifications/routes/notification.routes";
 import { conversationRoutes } from "./modules/conversations/routes/conversation.routes";
@@ -27,10 +28,14 @@ import { moderationRoutes } from "./modules/moderation/routes/moderation.routes"
 import { securityRoutes } from "./modules/security/routes/security.routes";
 import { prisma } from "./config/prisma";
 import { requireAuthSecret, resolveDocsAuth } from "./config/env";
+import multipart from "@fastify/multipart";
+import fastifyStatic from "@fastify/static";
+import path from "node:path";
 import { corsPlugin } from "./plugins/cors";
 import { helmetPlugin } from "./plugins/helmet";
 import { registerGlobalRateLimit } from "./plugins/rate-limit";
 import { compressPlugin } from "./plugins/compress";
+import { getUploadRoot, BANNER_MAX_BYTES } from "./lib/uploads";
 
 const fastify = Fastify({
   logger: false,
@@ -56,6 +61,24 @@ await fastify.register(helmetPlugin);
 // (middleware de sessão) sai todo do IP do container e compartilha este bucket.
 await registerGlobalRateLimit(fastify);
 await fastify.register(compressPlugin);
+// Multipart registrado UMA vez no escopo raiz (mesma regra do rate-limit:
+// re-registrar em escopo filho duplicaria hooks). Teto global = banner (8MB);
+// cada rota impõe o seu em `request.file({ limits })` + checagem de buffer.
+// `files: 1, fields: 0`: exatamente um arquivo, nenhum campo extra.
+await fastify.register(multipart, {
+  limits: { fileSize: BANNER_MAX_BYTES, files: 1, fields: 0 },
+});
+// Arquivos de mídia de perfil servidos em /uploads/*.
+// Defesa em profundidade no serve: só passa o que o servidor gera
+// (`avatars|banners/<seguro>.<raster>`); resto cai no 404 do app.
+await fastify.register(fastifyStatic, {
+  root: path.join(getUploadRoot()),
+  prefix: "/uploads/",
+  index: false,
+  redirect: false,
+  allowedPath: (pathName) =>
+    /^\/(avatars|banners)\/[A-Za-z0-9_-]+\.(jpg|png|gif|webp)$/.test(pathName),
+});
 await fastify.register(cookie, {
   // P1-1: sem fallback previsível — em produção, ausente/curto recusa o startup.
   secret: requireAuthSecret(),
@@ -214,6 +237,7 @@ await fastify.register(paymentsRoutes);
 await fastify.register(examRoutes);
 await fastify.register(tutorialRoutes);
 await fastify.register(platformRoutes);
+await fastify.register(mediaRoutes);
 await fastify.register(certificateRoutes);
 await fastify.register(notificationRoutes);
 await fastify.register(conversationRoutes);

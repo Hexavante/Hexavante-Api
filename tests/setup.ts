@@ -3,6 +3,12 @@
  * Runs before each test suite
  */
 import { vi, beforeAll, afterAll } from "vitest";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
+// Uploads de teste: diretório efêmero (nunca polui o repo nem o /tmp fixo).
+process.env.UPLOAD_DIR ??= mkdtempSync(path.join(tmpdir(), "hexavante-test-uploads-"));
 
 // Mock environment variables for tests.
 // Valores lidos do ambiente quando definidos (ex.: CI via TEST_*);

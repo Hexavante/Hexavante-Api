@@ -184,6 +184,7 @@ npm run dev            # :3045
 | `REDIS_URL` / `REDIS_PASSWORD` | Cache, sessão, OTP e rate-limit |
 | `BETTER_AUTH_URL` / `AUTH_URL` | URL pública da API |
 | `WEB_URL` | URL do app web (default de `callbackURL` e erros web no OAuth) |
+| `UPLOAD_DIR` / `MEDIA_BASE_URL` | Uploads avatar/banner (`POST /api/v1/users/me/avatar`, `/banner`; 5MB/8MB, só JPEG/PNG/GIF/WebP por magic bytes). Mesmo layout do Web (`avatars/`\|`banners/`); com volume compartilhado, apontar `MEDIA_BASE_URL` p/ o app |
 | `CORS_ORIGIN` | Origens permitidas (web, landing, app) |
 | `GOOGLE_/GITHUB_/MICROSOFT_/DISCORD_CLIENT_*` | OAuth (cada provider ligado só se tiver id+secret) |
 | `OAUTH_NATIVE_SCHEMES` | Schemes de app aceitos no `callbackURL` (ex. `hexavante`) |
