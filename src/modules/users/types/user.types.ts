@@ -4,6 +4,7 @@ export interface UserProfile {
   fullName: string;
   email: string;
   avatarUrl: string | null;
+  bannerUrl: string | null;
   birthDate: string | null;
   phone: string | null;
   city: string | null;
