@@ -1,3 +1,9 @@
+> [!IMPORTANT]
+> ## Software proprietário
+> Este repositório e seu conteúdo são propriedade confidencial da **Hexavante**. Não é concedida permissão para usar, copiar, modificar, distribuir, sublicenciar, realizar engenharia reversa ou criar obras derivadas sem autorização prévia e escrita da Hexavante.
+>
+> Consulte [LICENSE](LICENSE) para os termos completos. Acesso ao código não constitui concessão de licença.
+
 <div align="center">
   <h1>Hexavante API</h1>
   <p><strong>Backend oficial da plataforma educacional Hexavante</strong></p>
