@@ -18,7 +18,7 @@ export async function moderationRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Estatísticas de moderação",
         tags: ["Moderation"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.getStats.bind(controller)),
@@ -31,7 +31,7 @@ export async function moderationRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Usuários sinalizados",
         tags: ["Moderation"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.listUsers.bind(controller)),
@@ -44,7 +44,7 @@ export async function moderationRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Banir usuário",
         tags: ["Moderation"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.ban.bind(controller)),
@@ -57,7 +57,7 @@ export async function moderationRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Desbanir usuário",
         tags: ["Moderation"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.unban.bind(controller)),
@@ -70,7 +70,7 @@ export async function moderationRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Silenciar usuário",
         tags: ["Moderation"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.mute.bind(controller)),
@@ -83,7 +83,7 @@ export async function moderationRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Remover silêncio",
         tags: ["Moderation"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.unmute.bind(controller)),
@@ -96,7 +96,7 @@ export async function moderationRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Avisar usuário",
         tags: ["Moderation"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.warn.bind(controller)),

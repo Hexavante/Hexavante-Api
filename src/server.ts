@@ -118,6 +118,14 @@ if (!docsAuth.enabled) {
             name: "__Secure-hexavante.session_token",
             description: "Sessão autenticada via cookie (obtida em POST /api/v1/auth/login)",
           },
+          bearerAuth: {
+            type: "http",
+            scheme: "bearer",
+            description:
+              "Mesma sessão via Authorization: Bearer <token> — alternativa ao cookie " +
+              "usada por clientes não-browser (Desktop e Mobile). Mesma validação no servidor; " +
+              "quando os dois estiverem presentes, o header tem precedência.",
+          },
         },
       },
     },

@@ -25,7 +25,7 @@ export async function gamificationRoutes(fastify: FastifyInstance) {
 
   fastify.get(
     "/api/v1/rankings/me",
-    { preHandler: [authenticate], schema: { summary: 'Minha posição', tags: ['Gamification'], security: [{ session: [] }] } },
+    { preHandler: [authenticate], schema: { summary: 'Minha posição', tags: ['Gamification'], security: [{ session: [] }, { bearerAuth: [] }] } },
     asyncHandler(async (request, reply) => {
       const userId = request.user!.id;
       const result = await rankingService.getUserPosition(userId);
@@ -35,7 +35,7 @@ export async function gamificationRoutes(fastify: FastifyInstance) {
 
   fastify.get(
     "/api/v1/users/me/xp-profile",
-    { preHandler: [authenticate], schema: { summary: 'Perfil de XP', tags: ['Gamification'], security: [{ session: [] }] } },
+    { preHandler: [authenticate], schema: { summary: 'Perfil de XP', tags: ['Gamification'], security: [{ session: [] }, { bearerAuth: [] }] } },
     asyncHandler(async (request, reply) => {
       const userId = request.user!.id;
       const profile = await xpService.getProfile(userId);
@@ -67,7 +67,7 @@ export async function gamificationRoutes(fastify: FastifyInstance) {
 
   fastify.get(
     "/api/v1/users/me/achievements",
-    { preHandler: [authenticate], schema: { summary: 'Minhas conquistas', tags: ['Gamification'], security: [{ session: [] }] } },
+    { preHandler: [authenticate], schema: { summary: 'Minhas conquistas', tags: ['Gamification'], security: [{ session: [] }, { bearerAuth: [] }] } },
     asyncHandler(async (request, reply) => {
       const userId = request.user!.id;
       const achievements = await xpService.getUserAchievements(userId);

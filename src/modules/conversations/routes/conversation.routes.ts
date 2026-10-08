@@ -24,7 +24,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Caixa de entrada",
         tags: ["Conversations"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.getInbox.bind(controller)),
@@ -37,7 +37,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Iniciar conversa",
         tags: ["Conversations"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.createConversation.bind(controller)),
@@ -50,7 +50,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Mensagens",
         tags: ["Conversations"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.getMessages.bind(controller)),
@@ -63,7 +63,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Marcar como lida",
         tags: ["Conversations"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.markAsRead.bind(controller)),
@@ -76,7 +76,7 @@ export async function conversationRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Enviar mensagem",
         tags: ["Conversations"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.sendMessage.bind(controller)),

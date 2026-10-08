@@ -1,13 +1,23 @@
 import { z } from "zod";
 
-export const applyInstructorSchema = z.object({
-  motivation: z.string().min(20, "Conte-nos um pouco mais sobre sua motivação (mín. 20 caracteres)").max(2000),
-  experience: z.string().min(20, "Descreva sua experiência (mín. 20 caracteres)").max(2000),
-  portfolioUrl: z
-    .string()
-    .url("Portfólio inválido")
-    .optional()
-    .or(z.literal("")),
-});
+const optionalApplicationText = z.string().trim().max(2000).optional().default("");
+
+export const applyInstructorSchema = z
+  .object({
+    motivation: optionalApplicationText,
+    experience: optionalApplicationText,
+    portfolioUrl: z
+      .string()
+      .trim()
+      .url("Portfólio inválido")
+      .optional()
+      .or(z.literal("")),
+  })
+  .transform((application) => ({
+    ...application,
+    // O Mobile historicamente envia apenas `motivation`. Mantemos o campo
+    // persistido de experiência preenchido com o mesmo texto quando ele existe.
+    experience: application.experience || application.motivation,
+  }));
 
 export type ApplyInstructorInput = z.infer<typeof applyInstructorSchema>;

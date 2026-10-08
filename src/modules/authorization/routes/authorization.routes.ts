@@ -22,7 +22,7 @@ export async function authorizationRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Contexto de autorização do usuário",
         tags: ["Authorization"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.getContext.bind(controller)),
@@ -35,7 +35,7 @@ export async function authorizationRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Verificar se tenho uma permissão",
         tags: ["Authorization"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.checkPermission.bind(controller)),
@@ -59,7 +59,7 @@ export async function authorizationRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Listar todas as permissões definidas",
         tags: ["Authorization"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.listPermissions.bind(controller)),
@@ -72,7 +72,7 @@ export async function authorizationRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Listar todas as roles",
         tags: ["Authorization"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.listRoles.bind(controller)),
@@ -85,7 +85,7 @@ export async function authorizationRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Criar nova permissão (admin)",
         tags: ["Authorization"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.createPermission.bind(controller)),
@@ -98,7 +98,7 @@ export async function authorizationRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Criar nova role (admin)",
         tags: ["Authorization"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.createRole.bind(controller)),

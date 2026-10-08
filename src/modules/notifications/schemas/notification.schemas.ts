@@ -1,9 +1,19 @@
 import { z } from "zod";
 
+const queryBoolean = z.preprocess((value) => {
+  if (typeof value !== "string") return value;
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "true") return true;
+  if (normalized === "false") return false;
+
+  return value;
+}, z.boolean());
+
 export const listNotificationsSchema = z.object({
   query: z.object({
     limit: z.coerce.number().min(1).max(100).optional().default(20),
-    unreadOnly: z.coerce.boolean().optional().default(false),
+    unreadOnly: queryBoolean.optional().default(false),
   }),
 });
 

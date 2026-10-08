@@ -47,6 +47,18 @@ function fixFile(filePath) {
     },
   );
 
+  // Dynamic imports: `await import("../../x/y")` — sem isso o NodeNext ESM
+  // quebra em runtime (ERR_MODULE_NOT_FOUND), como aconteceu em
+  // user.repository → security.service (500 em GET /users/:username).
+  content = content.replace(
+    /(import\s*\(\s*['"])(\.\.?\/[^'"]+?)(['"]\s*\))/g,
+    (match, prefix, path, suffix) => {
+      if (path.endsWith(".js") || path.endsWith(".mjs")) return match;
+      const resolved = resolvePath(baseDir, path);
+      return `${prefix}${resolved}${suffix}`;
+    },
+  );
+
   if (content !== original) {
     writeFileSync(filePath, content, "utf-8");
   }

@@ -1,7 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../../../config/prisma';
-import { createSession, parseSessionToken } from '../../../lib/session';
+import { createSession, extractSessionToken } from '../../../lib/session';
 import { authenticate } from '../../../middlewares/authenticate';
 import { asyncHandler } from '../../../lib/errors/errorHandler';
 import { ForbiddenError, NotFoundError } from '../../../lib/errors/AppError';
@@ -42,7 +42,7 @@ export async function impersonateRoutes(fastify: FastifyInstance) {
     '/admin/impersonate-user',
     {
       preHandler: [authenticate],
-      schema: { summary: 'Impersonar usuário (admin)', tags: ['Admin'], security: [{ session: [] }] },
+      schema: { summary: 'Impersonar usuário (admin)', tags: ['Admin'], security: [{ session: [] }, { bearerAuth: [] }] },
     },
     asyncHandler(async (request: FastifyRequest, reply: FastifyReply) => {
       await validateBody(impersonateSchema)(request, reply);
@@ -74,10 +74,10 @@ export async function impersonateRoutes(fastify: FastifyInstance) {
     '/admin/stop-impersonating',
     {
       preHandler: [authenticate],
-      schema: { summary: 'Encerrar impersonação', tags: ['Admin'], security: [{ session: [] }] },
+      schema: { summary: 'Encerrar impersonação', tags: ['Admin'], security: [{ session: [] }, { bearerAuth: [] }] },
     },
     asyncHandler(async (request: FastifyRequest, reply: FastifyReply) => {
-      const token = parseSessionToken(request.headers.cookie || null);
+      const token = extractSessionToken(request.headers);
       if (token) {
         await prisma.session.deleteMany({ where: { token } });
       }

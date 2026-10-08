@@ -28,7 +28,7 @@ export async function liveRoomRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Minhas salas (instrutor)",
         tags: ["Live Rooms"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.instructorRooms.bind(controller)),
@@ -41,7 +41,7 @@ export async function liveRoomRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Cursos do instrutor",
         tags: ["Live Rooms"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.instructorCourses.bind(controller)),
@@ -54,7 +54,7 @@ export async function liveRoomRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Criar sala ao vivo",
         tags: ["Live Rooms"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.create.bind(controller)),
@@ -67,7 +67,7 @@ export async function liveRoomRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Detalhes da sala",
         tags: ["Live Rooms"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.detail.bind(controller)),
@@ -80,7 +80,7 @@ export async function liveRoomRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Atualizar sala",
         tags: ["Live Rooms"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.update.bind(controller)),
@@ -93,7 +93,7 @@ export async function liveRoomRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Cancelar sala",
         tags: ["Live Rooms"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.cancel.bind(controller)),
@@ -106,7 +106,7 @@ export async function liveRoomRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Iniciar transmissão",
         tags: ["Live Rooms"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.start.bind(controller)),
@@ -119,7 +119,7 @@ export async function liveRoomRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Encerrar transmissão",
         tags: ["Live Rooms"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.end.bind(controller)),
@@ -132,7 +132,7 @@ export async function liveRoomRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Entrar na sala",
         tags: ["Live Rooms"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.join.bind(controller)),
@@ -145,7 +145,7 @@ export async function liveRoomRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Sair da sala",
         tags: ["Live Rooms"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.leave.bind(controller)),
@@ -158,7 +158,7 @@ export async function liveRoomRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Chat da sala",
         tags: ["Live Rooms"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.messages.bind(controller)),
@@ -171,7 +171,7 @@ export async function liveRoomRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Enviar mensagem no chat",
         tags: ["Live Rooms"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.send.bind(controller)),

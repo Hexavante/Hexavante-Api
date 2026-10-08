@@ -18,9 +18,12 @@ vi.mock('../../../config/prisma', () => ({
   },
 }));
 
-// authenticate → parseSessionToken/validateSession (sem bater em Redis)
+// authenticate → extractSessionToken/validateSession (sem bater em Redis)
 vi.mock('../../../lib/session', () => ({
   parseSessionToken: vi.fn((cookie: string | null) => (cookie ? 'session-token' : null)),
+  extractSessionToken: vi.fn((headers: { authorization?: string | null; cookie?: string | null } | undefined | null) =>
+    headers?.authorization || headers?.cookie ? 'session-token' : null,
+  ),
   validateSession: vi.fn(async () => ({
     user: { id: 'user_1' },
     expiresAt: new Date(Date.now() + 60_000),

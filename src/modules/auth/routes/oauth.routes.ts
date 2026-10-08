@@ -118,7 +118,7 @@ export async function oauthRoutes(fastify: FastifyInstance) {
       summary: "Trocar código OAuth nativo por sessão",
       tags: ["Auth"],
       description:
-        "Recebe o `code` entregue no redirect nativo (`<callbackURL>?code=...&provider=...`), consome no Redis (uso único, expira em 120s) e devolve o token de sessão e o usuário no mesmo shape do login. Público: os apps nativos usam o `token` no cookie `__Secure-hexavante.session_token`.",
+        "Recebe o `code` entregue no redirect nativo (`<callbackURL>?code=...&provider=...`), consome no Redis (uso único, expira em 120s) e devolve o token de sessão e o usuário no mesmo shape do login. Público: os apps nativos usam o `token` em `Authorization: Bearer <token>`.",
       body: {
         type: "object",
         required: ["code"],

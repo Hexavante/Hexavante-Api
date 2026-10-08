@@ -55,6 +55,7 @@ vi.mock("../../../lib/session", () => ({
   deleteSessionsByUserId: vi.fn(),
   validateSession: vi.fn(),
   parseSessionToken: vi.fn(),
+  extractSessionToken: vi.fn(),
 }));
 
 describe("AuthService", () => {

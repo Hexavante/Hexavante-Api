@@ -71,7 +71,7 @@ export async function securityRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Listar dispositivos confiáveis",
         tags: ["Security"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(securityController.listDevices.bind(securityController)),
@@ -84,7 +84,7 @@ export async function securityRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Revogar dispositivo",
         tags: ["Security"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(securityController.revokeDevice.bind(securityController)),
@@ -97,7 +97,7 @@ export async function securityRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Ativar 2FA (gerar segredo)",
         tags: ["Security"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(securityController.enableTwoFactor.bind(securityController)),
@@ -110,7 +110,7 @@ export async function securityRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Confirmar 2FA com código TOTP",
         tags: ["Security"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(securityController.confirmTwoFactor.bind(securityController)),
@@ -123,7 +123,7 @@ export async function securityRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Desativar 2FA",
         tags: ["Security"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(securityController.disableTwoFactor.bind(securityController)),
@@ -136,7 +136,7 @@ export async function securityRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Atualizar status de presença",
         tags: ["Security"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(securityController.setPresence.bind(securityController)),
@@ -149,7 +149,7 @@ export async function securityRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Heartbeat para manter sessão ativa",
         tags: ["Security"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(securityController.heartbeat.bind(securityController)),

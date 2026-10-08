@@ -18,7 +18,7 @@ export async function mediaRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Enviar avatar (multipart, máx. 5MB)",
         tags: ["Users"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
         consumes: ["multipart/form-data"],
         response: {
           200: {
@@ -41,7 +41,7 @@ export async function mediaRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Enviar banner (multipart, máx. 8MB)",
         tags: ["Users"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
         consumes: ["multipart/form-data"],
         response: {
           200: {

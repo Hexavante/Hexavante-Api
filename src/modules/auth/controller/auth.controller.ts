@@ -3,7 +3,7 @@ import { AuthService } from '../service/auth.service';
 import { UnauthorizedError } from '../../../lib/errors/AppError';
 import { loginSchema, registerSchema } from '../schemas/auth.schemas';
 import { validateBody } from '../../../lib/validation/validate';
-import { parseSessionToken } from '../../../lib/session';
+import { extractSessionToken } from '../../../lib/session';
 import { resolveDeviceIp } from '../../security/service/security.service';
 
 export class AuthController {
@@ -75,7 +75,7 @@ export class AuthController {
   }
 
   async logout(request: FastifyRequest, reply: FastifyReply): Promise<void> {
-    const token = parseSessionToken(request.headers.cookie || null);
+    const token = extractSessionToken(request.headers);
 
     if (token) {
       await this.authService.signOut(token);
@@ -90,7 +90,7 @@ export class AuthController {
   }
 
   async session(request: FastifyRequest, reply: FastifyReply): Promise<void> {
-    const token = parseSessionToken(request.headers.cookie || null);
+    const token = extractSessionToken(request.headers);
 
     if (!token) {
       throw new UnauthorizedError('Sessão inválida ou expirada');

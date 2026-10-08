@@ -17,7 +17,7 @@ export async function instructorRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Status do instrutor",
         tags: ["Instructor"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.getStatus.bind(controller)),
@@ -30,7 +30,7 @@ export async function instructorRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Candidatar-se a instrutor",
         tags: ["Instructor"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.apply.bind(controller)),
@@ -54,7 +54,7 @@ export async function instructorRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Meus cursos (instrutor)",
         tags: ["Instructor"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(controller.getMyCourses.bind(controller)),

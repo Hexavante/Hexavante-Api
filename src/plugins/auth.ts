@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyPluginAsync } from 'fastify';
-import { validateSession, parseSessionToken } from '../lib/session';
+import { validateSession, extractSessionToken } from '../lib/session';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -30,7 +30,7 @@ declare module 'fastify' {
 export const authPlugin: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   fastify.addHook('preHandler', async (request) => {
     try {
-      const token = parseSessionToken(request.headers.cookie || null);
+      const token = extractSessionToken(request.headers);
       if (!token) return;
 
       const session = await validateSession(token);

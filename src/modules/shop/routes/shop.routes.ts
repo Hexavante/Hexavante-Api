@@ -10,31 +10,31 @@ export async function shopRoutes(fastify: FastifyInstance) {
 
   fastify.get(
     '/api/v1/shop',
-    { preHandler: [authenticate], schema: { summary: 'Loja', tags: ['Shop'], security: [{ session: [] }] } },
+    { preHandler: [authenticate], schema: { summary: 'Loja', tags: ['Shop'], security: [{ session: [] }, { bearerAuth: [] }] } },
     asyncHandler(shopController.getShopState.bind(shopController)),
   )
 
   fastify.post(
     '/api/v1/shop/purchase',
-    { preHandler: [authenticate], schema: { summary: 'Comprar item', tags: ['Shop'], security: [{ session: [] }] } },
+    { preHandler: [authenticate], schema: { summary: 'Comprar item', tags: ['Shop'], security: [{ session: [] }, { bearerAuth: [] }] } },
     asyncHandler(shopController.purchaseItem.bind(shopController)),
   )
 
   fastify.post(
     '/api/v1/shop/equip',
-    { preHandler: [authenticate], schema: { summary: 'Equipar/desquipar item', tags: ['Shop'], security: [{ session: [] }] } },
+    { preHandler: [authenticate], schema: { summary: 'Equipar/desquipar item', tags: ['Shop'], security: [{ session: [] }, { bearerAuth: [] }] } },
     asyncHandler(shopController.equipItem.bind(shopController)),
   )
 
   fastify.get(
     '/api/v1/inventory',
-    { preHandler: [authenticate], schema: { summary: 'Inventário', tags: ['Shop'], security: [{ session: [] }] } },
+    { preHandler: [authenticate], schema: { summary: 'Inventário', tags: ['Shop'], security: [{ session: [] }, { bearerAuth: [] }] } },
     asyncHandler(shopController.getInventory.bind(shopController)),
   )
 
   fastify.post(
     '/api/v1/shop/premium/trial',
-    { preHandler: [authenticate], schema: { summary: 'Ativar trial Premium (30 dias)', tags: ['Shop'], security: [{ session: [] }] } },
+    { preHandler: [authenticate], schema: { summary: 'Ativar trial Premium (30 dias)', tags: ['Shop'], security: [{ session: [] }, { bearerAuth: [] }] } },
     asyncHandler(shopController.activatePremiumTrial.bind(shopController)),
   )
 }

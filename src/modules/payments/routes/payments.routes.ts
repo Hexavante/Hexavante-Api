@@ -34,7 +34,7 @@ export async function paymentsRoutes(fastify: FastifyInstance) {
       schema: {
         summary: 'Iniciar checkout (Mercado Pago)',
         tags: ['Payments'],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(paymentsController.checkout.bind(paymentsController)),
@@ -58,7 +58,7 @@ export async function paymentsRoutes(fastify: FastifyInstance) {
       schema: {
         summary: 'Status de um pagamento',
         tags: ['Payments'],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(paymentsController.getPaymentStatus.bind(paymentsController)),

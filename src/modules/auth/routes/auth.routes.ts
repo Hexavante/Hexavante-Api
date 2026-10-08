@@ -42,6 +42,7 @@ export async function authRoutes(fastify: FastifyInstance) {
     schema: {
       summary: "Encerrar sessão",
       tags: ["Auth"],
+      security: [{ session: [] }, { bearerAuth: [] }],
     },
   }, asyncHandler(authController.logout.bind(authController)));
 
@@ -49,6 +50,7 @@ export async function authRoutes(fastify: FastifyInstance) {
     schema: {
       summary: "Obter sessão atual",
       tags: ["Auth"],
+      security: [{ session: [] }, { bearerAuth: [] }],
     },
   }, asyncHandler(authController.session.bind(authController)));
 

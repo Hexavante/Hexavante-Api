@@ -17,25 +17,25 @@ export async function examRoutes(fastify: FastifyInstance) {
 
   fastify.get(
     '/api/v1/exams/history',
-    { preHandler: [authenticate], schema: { summary: 'Histórico de provas', tags: ['Exams'], security: [{ session: [] }] } },
+    { preHandler: [authenticate], schema: { summary: 'Histórico de provas', tags: ['Exams'], security: [{ session: [] }, { bearerAuth: [] }] } },
     asyncHandler(examController.getHistory.bind(examController)),
   )
 
   fastify.get(
     '/api/v1/exams/stats',
-    { preHandler: [authenticate], schema: { summary: 'Estatísticas de provas', tags: ['Exams'], security: [{ session: [] }] } },
+    { preHandler: [authenticate], schema: { summary: 'Estatísticas de provas', tags: ['Exams'], security: [{ session: [] }, { bearerAuth: [] }] } },
     asyncHandler(examController.getStats.bind(examController)),
   )
 
   fastify.get(
     '/api/v1/exams/evolution',
-    { preHandler: [authenticate], schema: { summary: 'Evolução de notas', tags: ['Exams'], security: [{ session: [] }] } },
+    { preHandler: [authenticate], schema: { summary: 'Evolução de notas', tags: ['Exams'], security: [{ session: [] }, { bearerAuth: [] }] } },
     asyncHandler(examController.getEvolution.bind(examController)),
   )
 
   fastify.get(
     '/api/v1/exams/subject-stats',
-    { preHandler: [authenticate], schema: { summary: 'Estatísticas por matéria', tags: ['Exams'], security: [{ session: [] }] } },
+    { preHandler: [authenticate], schema: { summary: 'Estatísticas por matéria', tags: ['Exams'], security: [{ session: [] }, { bearerAuth: [] }] } },
     asyncHandler(examController.getSubjectStats.bind(examController)),
   )
 
@@ -47,13 +47,13 @@ export async function examRoutes(fastify: FastifyInstance) {
 
   fastify.post(
     '/api/v1/exams/:id/start',
-    { preHandler: [authenticate], schema: { summary: 'Iniciar prova', tags: ['Exams'], security: [{ session: [] }] } },
+    { preHandler: [authenticate], schema: { summary: 'Iniciar prova', tags: ['Exams'], security: [{ session: [] }, { bearerAuth: [] }] } },
     asyncHandler(examController.startExam.bind(examController)),
   )
 
   fastify.post(
     '/api/v1/exams/submit',
-    { preHandler: [authenticate], schema: { summary: 'Submeter respostas', tags: ['Exams'], security: [{ session: [] }] } },
+    { preHandler: [authenticate], schema: { summary: 'Submeter respostas', tags: ['Exams'], security: [{ session: [] }, { bearerAuth: [] }] } },
     asyncHandler(examController.submitExam.bind(examController)),
   )
 }

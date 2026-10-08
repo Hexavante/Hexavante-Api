@@ -87,3 +87,33 @@ export function parseSessionToken(cookieHeader: string | null): string | null {
   }
   return null;
 }
+
+/**
+ * Lê o token de `Authorization: Bearer <token>`.
+ *
+ * Forma de autenticação usada pelos clientes não-browser (Desktop e Mobile),
+ * que não devem depender do armazenamento de cookies de outra origin. O token
+ * passa pela MESMA validação do cookie
+ * (`validateSession` → sessão no banco, com expiração): nada de confiar no
+ * header por si só.
+ */
+export function parseBearerToken(authorizationHeader: string | null | undefined): string | null {
+  if (!authorizationHeader) return null;
+  const match = /^Bearer[ \t]+(\S+)$/i.exec(authorizationHeader.trim());
+  return match ? match[1] : null;
+}
+
+/**
+ * Extrai a credencial de sessão de uma requisição.
+ *
+ * Ordem: `Authorization: Bearer` antes do cookie. O header não é enviável
+ * por cross-site request forgering (o navegador exige preflight e o site
+ * atacante não tem o token), então quando os dois chegam o header é a
+ * intenção explícita do cliente e tem precedência. Clientes browser
+ * (Web/Landing/Admin) continuam usando só o cookie — contrato inalterado.
+ */
+export function extractSessionToken(
+  headers: { authorization?: string | null; cookie?: string | null },
+): string | null {
+  return parseBearerToken(headers.authorization ?? null) ?? parseSessionToken(headers.cookie ?? null);
+}

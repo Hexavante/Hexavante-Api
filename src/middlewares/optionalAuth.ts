@@ -1,12 +1,12 @@
 import { FastifyRequest, FastifyReply } from "fastify";
-import { validateSession, parseSessionToken } from "../lib/session";
+import { validateSession, extractSessionToken } from "../lib/session";
 
 export async function optionalAuth(
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   try {
-    const token = parseSessionToken(request.headers.cookie || null);
+    const token = extractSessionToken(request.headers);
     if (!token) return;
 
     const session = await validateSession(token);

@@ -49,7 +49,7 @@ export async function courseRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Criar curso",
         tags: ["Courses"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(courseController.create.bind(courseController)),
@@ -62,7 +62,7 @@ export async function courseRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Atualizar curso",
         tags: ["Courses"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(courseController.update.bind(courseController)),
@@ -75,7 +75,7 @@ export async function courseRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Deletar curso",
         tags: ["Courses"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(courseController.delete.bind(courseController)),
@@ -88,7 +88,7 @@ export async function courseRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Matricular-se",
         tags: ["Courses"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(courseController.enroll.bind(courseController)),
@@ -101,7 +101,7 @@ export async function courseRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Progresso do curso",
         tags: ["Courses"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(courseController.getProgress.bind(courseController)),
@@ -114,7 +114,7 @@ export async function courseRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Conteúdo da aula",
         tags: ["Courses"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(learningController.getLesson.bind(learningController)),
@@ -127,7 +127,7 @@ export async function courseRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Concluir aula",
         tags: ["Courses"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(learningController.completeLesson.bind(learningController)),
@@ -140,7 +140,7 @@ export async function courseRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Favoritar aula",
         tags: ["Courses"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(learningController.toggleFavorite.bind(learningController)),
@@ -153,7 +153,7 @@ export async function courseRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Obter nota da aula",
         tags: ["Courses"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(learningController.getNote.bind(learningController)),
@@ -166,7 +166,7 @@ export async function courseRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Salvar nota da aula",
         tags: ["Courses"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(learningController.saveNote.bind(learningController)),

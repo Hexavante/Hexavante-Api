@@ -18,7 +18,7 @@ export async function userRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Obter meu perfil completo",
         tags: ["Users"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(userController.me.bind(userController)),
@@ -43,7 +43,7 @@ export async function userRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Atualizar meu perfil",
         tags: ["Users"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(userController.updateMe.bind(userController)),
@@ -56,7 +56,7 @@ export async function userRoutes(fastify: FastifyInstance) {
       schema: {
         summary: "Deletar minha conta",
         tags: ["Users"],
-        security: [{ session: [] }],
+        security: [{ session: [] }, { bearerAuth: [] }],
       },
     },
     asyncHandler(userController.deleteMe.bind(userController)),

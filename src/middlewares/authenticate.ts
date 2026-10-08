@@ -1,12 +1,12 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 import { prisma } from "../config/prisma";
-import { validateSession, parseSessionToken } from "../lib/session";
+import { validateSession, extractSessionToken } from "../lib/session";
 
 export async function authenticate(
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
-  const token = parseSessionToken(request.headers.cookie || null);
+  const token = extractSessionToken(request.headers);
   if (!token) {
     return reply.status(401).send({ success: false, error: 'Unauthorized' });
   }

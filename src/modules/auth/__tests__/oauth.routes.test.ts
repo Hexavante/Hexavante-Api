@@ -9,6 +9,7 @@ vi.mock("../service/oauth.service", () => ({
 vi.mock("../../../lib/session", () => ({
   createSession: vi.fn(),
   validateSession: vi.fn(),
+  extractSessionToken: vi.fn(),
 }));
 // trustDevice não é o alvo destes testes — evita bater no Prisma.
 vi.mock("../../security/service/security.service", () => ({
