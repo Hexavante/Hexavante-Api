@@ -15,6 +15,26 @@ Adicione também a variável de repositório `ENABLE_VPS_DEPLOY` com valor `true
 
 Use o mesmo conjunto nos quatro repositórios. A chave privada deve ficar apenas em GitHub Actions Secrets, nunca no repositório, em arquivos de workflow ou em logs. A chave pública da VPS é limitada a um comando de deploy validado.
 
+## Leitura do repositório privado pela VPS
+
+O comando de deploy faz um novo `git fetch` na VPS antes do build. Em repositórios
+privados, o usuário `hexavante-deploy` precisa de uma chave Ed25519 exclusiva para
+esse repositório:
+
+1. gere a chave no diretório `.ssh` do usuário de deploy, sem reutilizar a chave
+   que autentica o GitHub Actions na VPS;
+2. cadastre somente a chave pública em **Settings → Deploy keys**, sem permissão
+   de escrita;
+3. use `git@github.com:Hexavante/Hexavante-Api.git` como `origin` do checkout;
+4. configure `core.sshCommand` no checkout com a identidade dedicada,
+   `IdentitiesOnly=yes`, `StrictHostKeyChecking=yes` e um `known_hosts` que contenha
+   a chave de host publicada oficialmente pelo GitHub;
+5. valide com `git ls-remote origin refs/heads/main` executado como
+   `hexavante-deploy`.
+
+O GitHub não permite reutilizar a mesma deploy key em repositórios diferentes.
+Cada checkout privado precisa da sua própria chave somente leitura.
+
 ## Caminhos e portas
 
 | Repositório | Caminho na VPS | Porta publicada |
