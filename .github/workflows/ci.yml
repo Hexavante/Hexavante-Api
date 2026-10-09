@@ -6,12 +6,6 @@ on:
   pull_request:
     branches: [main]
 
-# Senha efêmera usada APENAS nos runners de CI (banco de teste descartável,
-# destruído ao fim do job). Nunca usar em produção. Centralizada aqui e
-# referenciada via ${{ env.TEST_DB_PASSWORD }} — sem literal espalhado.
-env:
-  TEST_DB_PASSWORD: test_password
-
 jobs:
   lint-and-typecheck:
     runs-on: ubuntu-latest
@@ -31,7 +25,8 @@ jobs:
       mysql:
         image: mariadb:11
         env:
-          MYSQL_ROOT_PASSWORD: ${{ env.TEST_DB_PASSWORD }}
+          # Credencial fixa e efêmera do container descartável do runner.
+          MYSQL_ROOT_PASSWORD: test_password
           MYSQL_DATABASE: hexavante_test
         ports:
           # Loopback do runner apenas — o job acessa via localhost,
@@ -49,7 +44,7 @@ jobs:
           --health-cmd="redis-cli ping"
           --health-interval=10s --health-timeout=5s --health-retries=5
     env:
-      DATABASE_URL: mysql://root:${{ env.TEST_DB_PASSWORD }}@localhost:3306/hexavante_test
+      DATABASE_URL: mysql://root:test_password@localhost:3306/hexavante_test
       REDIS_URL: redis://localhost:6379
     steps:
       - uses: actions/checkout@v4
