@@ -1,0 +1,29 @@
+services:
+  api-desktop:
+    build:
+      context: ../..
+      dockerfile: apps/api-desktop/Dockerfile
+    container_name: hexavante-api-desktop
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      DESKTOP_PORT: 3046
+    ports:
+      - "127.0.0.1:3046:3046"
+    volumes:
+      - hexavante_uploads:/app/public/uploads
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3046/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+    networks: [hexavante-net]
+networks:
+  hexavante-net:
+    external: true
+    name: hexavante_default
+volumes:
+  hexavante_uploads:
+    external: true

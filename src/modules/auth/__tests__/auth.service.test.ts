@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { AuthService } from "../service/auth.service";
-import { prisma } from "../../../config/prisma";
+import { prisma } from "../../../../packages/core/src/config/prisma";
 import { BadRequestError, ConflictError } from "../../../lib/errors/AppError";
 
 // Mock dependencies
-vi.mock("../../../config/prisma", () => ({
+vi.mock("../../../../packages/core/src/config/prisma", () => ({
   prisma: {
     user: {
       findUnique: vi.fn(),
@@ -39,12 +39,12 @@ vi.mock("../../../config/prisma", () => ({
   },
 }));
 
-vi.mock("../../../lib/password", () => ({
+vi.mock("../../../../packages/core/src/lib/password", () => ({
   hashPassword: vi.fn().mockResolvedValue("hashed-password"),
   verifyPassword: vi.fn(),
 }));
 
-vi.mock("../../../lib/session", () => ({
+vi.mock("../../../../packages/core/src/lib/session", () => ({
   createSession: vi.fn().mockResolvedValue({
     id: "session-1",
     token: "test-token",
@@ -81,7 +81,7 @@ describe("AuthService", () => {
       };
 
       vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any);
-      const { verifyPassword } = await import("../../../lib/password");
+      const { verifyPassword } = await import("../../../../packages/core/src/lib/password");
       vi.mocked(verifyPassword).mockResolvedValue(true);
       vi.mocked(prisma.trustedDevice.findUnique).mockResolvedValue({
         revokedAt: null,
@@ -115,7 +115,7 @@ describe("AuthService", () => {
       };
 
       vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any);
-      const { verifyPassword } = await import("../../../lib/password");
+      const { verifyPassword } = await import("../../../../packages/core/src/lib/password");
       vi.mocked(verifyPassword).mockResolvedValue(true);
       vi.mocked(prisma.trustedDevice.findUnique).mockResolvedValue(null);
       vi.mocked(prisma.deviceVerificationCode.updateMany).mockResolvedValue({ count: 0 } as any);
@@ -154,7 +154,7 @@ describe("AuthService", () => {
       };
 
       vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any);
-      const { verifyPassword } = await import("../../../lib/password");
+      const { verifyPassword } = await import("../../../../packages/core/src/lib/password");
       vi.mocked(verifyPassword).mockResolvedValue(false);
 
       const result = await authService.signIn(
@@ -294,7 +294,7 @@ describe("AuthService", () => {
 
   describe("signOut", () => {
     it("should delete session", async () => {
-      const { deleteSession } = await import("../../../lib/session");
+      const { deleteSession } = await import("../../../../packages/core/src/lib/session");
 
       await authService.signOut("test-token");
 
@@ -309,7 +309,7 @@ describe("AuthService", () => {
         session: { id: "session-1" },
       };
 
-      const { validateSession } = await import("../../../lib/session");
+      const { validateSession } = await import("../../../../packages/core/src/lib/session");
       vi.mocked(validateSession).mockResolvedValue(mockSession as any);
 
       const result = await authService.getSession("test-token");
@@ -318,7 +318,7 @@ describe("AuthService", () => {
     });
 
     it("should return null when session is invalid", async () => {
-      const { validateSession } = await import("../../../lib/session");
+      const { validateSession } = await import("../../../../packages/core/src/lib/session");
       vi.mocked(validateSession).mockResolvedValue(null);
 
       const result = await authService.getSession("invalid-token");

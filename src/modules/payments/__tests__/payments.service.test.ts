@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
-import { prisma } from '../../../config/prisma';
+import { prisma } from '../../../../packages/core/src/config/prisma';
 import { InternalServerError, NotFoundError } from '../../../lib/errors/AppError';
 import { PaymentsService } from '../service/payments.service';
 import type {
@@ -14,7 +14,7 @@ import type { Payment } from '@prisma/client';
  * Mock do Prisma (módulo `config/prisma` substituído inteiro — nada de DB).
  * `__tx` expõe os mocks do callback de `prisma.$transaction`.
  */
-vi.mock('../../../config/prisma', () => {
+vi.mock('../../../../packages/core/src/config/prisma', () => {
   const tx = {
     payment: { updateMany: vi.fn() },
     user: { findUnique: vi.fn(), update: vi.fn() },

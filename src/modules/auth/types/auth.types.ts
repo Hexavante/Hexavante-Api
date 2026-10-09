@@ -1,7 +1,1 @@
-export interface AuthUser {
-  id: string;
-  name: string;
-  email: string;
-  username: string;
-  roles: string[];
-}
+export * from "../../../../packages/core/src/modules/auth/types/auth.types";

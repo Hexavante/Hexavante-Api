@@ -1,0 +1,29 @@
+services:
+  api-mobile:
+    build:
+      context: ../..
+      dockerfile: apps/api-mobile/Dockerfile
+    container_name: hexavante-api-mobile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      MOBILE_PORT: 3047
+    ports:
+      - "127.0.0.1:3047:3047"
+    volumes:
+      - hexavante_uploads:/app/public/uploads
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3047/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+    networks: [hexavante-net]
+networks:
+  hexavante-net:
+    external: true
+    name: hexavante_default
+volumes:
+  hexavante_uploads:
+    external: true

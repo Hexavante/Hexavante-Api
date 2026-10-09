@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { SecurityService } from "../service/security.service";
-import { prisma } from "../../../config/prisma";
+import { prisma } from "../../../../packages/core/src/config/prisma";
 import { BadRequestError } from "../../../lib/errors/AppError";
 
 // Banco mockado (padrão do repo para testes de service).
-vi.mock("../../../config/prisma", () => ({
+vi.mock("../../../../packages/core/src/config/prisma", () => ({
   prisma: {
     user: {
       findUnique: vi.fn(),
@@ -29,19 +29,19 @@ vi.mock("../../../config/prisma", () => ({
 }));
 
 // E-mail mockado: sem rede, sem RESEND_API_KEY.
-vi.mock("../../../lib/email", () => ({
+vi.mock("../../../../packages/core/src/lib/email", () => ({
   sendEmail: vi.fn().mockResolvedValue({ sent: true }),
   deviceCodeEmailHtml: vi.fn().mockReturnValue("<html></html>"),
   emailVerifyHtml: vi.fn().mockReturnValue("<html></html>"),
   twoFactorEmailHtml: vi.fn().mockReturnValue("<html></html>"),
 }));
 
-vi.mock("../../../lib/password", () => ({
+vi.mock("../../../../packages/core/src/lib/password", () => ({
   hashPassword: vi.fn().mockResolvedValue("hashed-new-password"),
   verifyPassword: vi.fn(),
 }));
 
-import { sendEmail } from "../../../lib/email";
+import { sendEmail } from "../../../../packages/core/src/lib/email";
 
 /**
  * P1-3: forgot-password sem enumeração de e-mail.

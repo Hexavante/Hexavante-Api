@@ -1,0 +1,35 @@
+name: Deploy Desktop API
+on:
+  push:
+    branches: [main]
+    paths: ["apps/api-desktop/**", "packages/core/**", "prisma/**", "deploy/desktop/**", "package*.json", "tsconfig.json"]
+  workflow_dispatch:
+concurrency:
+  # Os serviços são independentes, mas o checkout compartilhado da VPS é
+  # protegido por uma única fila durante build/deploy.
+  group: production-api-platforms
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  deploy:
+    if: ${{ vars.ENABLE_VPS_DEPLOY == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npx vitest run tests/platform-isolation.test.ts tests/platform-contract.test.ts
+      - name: Configure pinned SSH
+        env: { VPS_SSH_KEY: "${{ secrets.VPS_SSH_KEY }}" }
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' '187.127.54.55 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILG2+WXok2+/L5AohuAOkbLcdgQVB/mX7z/ouPdAhefL' > ~/.ssh/known_hosts
+      - name: Deploy independently
+        env: { VPS_HOST: "${{ secrets.VPS_HOST }}", VPS_USER: "${{ secrets.VPS_USER }}", VPS_PORT: "${{ secrets.VPS_PORT }}" }
+        run: ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "deploy api-desktop $GITHUB_SHA"

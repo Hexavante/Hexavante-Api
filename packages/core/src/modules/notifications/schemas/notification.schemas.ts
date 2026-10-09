@@ -1,0 +1,34 @@
+import { z } from "zod";
+
+const queryBoolean = z.preprocess((value) => {
+  if (typeof value !== "string") return value;
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "true") return true;
+  if (normalized === "false") return false;
+
+  return value;
+}, z.boolean());
+
+export const listNotificationsSchema = z.object({
+  query: z.object({
+    limit: z.coerce.number().min(1).max(100).optional().default(20),
+    unreadOnly: queryBoolean.optional().default(false),
+  }),
+});
+
+export const markReadSchema = z.object({
+  params: z.object({
+    id: z.string().min(1, "ID da notificação é obrigatório"),
+  }),
+});
+
+export const markAllReadSchema = z.object({}).default({});
+
+export const registerPushTokenSchema = z.object({
+  expoToken: z.string().min(1, "Token inválido").max(255),
+  deviceName: z.string().max(120).optional(),
+});
+
+export type ListNotificationsQuery = z.infer<typeof listNotificationsSchema>["query"];
+export type MarkReadParams = z.infer<typeof markReadSchema>["params"];

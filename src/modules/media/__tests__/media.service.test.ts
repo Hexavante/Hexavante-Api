@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 // Evita conexão real: o import do repository puxa o módulo prisma.
-vi.mock("../../../config/prisma", () => ({ prisma: {} }));
+vi.mock("../../../../packages/core/src/config/prisma", () => ({ prisma: {} }));
 
 import { MediaService } from "../service/media.service";
 import { getUploadRoot } from "../../../lib/uploads";

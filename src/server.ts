@@ -43,6 +43,16 @@ const fastify = Fastify({
   trustProxy: true,
 });
 
+// Gateway temporário de compatibilidade. Clientes nativos novos devem usar
+// as APIs dedicadas; os headers permitem monitorar e comunicar a retirada sem
+// alterar os corpos ou status HTTP dos contratos existentes.
+fastify.addHook("onSend", async (_request, reply, payload) => {
+  reply.header("Deprecation", "true");
+  reply.header("Sunset", process.env.LEGACY_API_SUNSET || "Wed, 31 Mar 2027 23:59:59 GMT");
+  reply.header("Link", '<https://desktop-api.hexavante.com.br>; rel="successor-version", <https://mobile-api.hexavante.com.br>; rel="alternate"');
+  return payload;
+});
+
 fastify.addHook("onRequest", (request, reply, done) => {
   request.log = logger as any;
   done();

@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 
 // Evita conexão real: o import do service puxa o módulo prisma,
 // cujo $connect() em top-level chamaria process.exit(1) sem banco.
-vi.mock("../../../config/prisma", () => ({ prisma: {} }));
+vi.mock("../../../../packages/core/src/config/prisma", () => ({ prisma: {} }));
 
 import {
   fingerprintDevice,

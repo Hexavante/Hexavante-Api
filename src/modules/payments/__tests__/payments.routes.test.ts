@@ -9,7 +9,7 @@ import type { Payment } from '@prisma/client';
  * sem Redis, sem DB, sem rate-limit global).
  */
 
-vi.mock('../../../config/prisma', () => ({
+vi.mock('../../../../packages/core/src/config/prisma', () => ({
   prisma: {
     payment: { create: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     user: { findUnique: vi.fn(), update: vi.fn() },
