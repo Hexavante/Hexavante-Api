@@ -62,7 +62,7 @@ export async function buildApp() {
   const docsPass = process.env.MOBILE_SWAGGER_PASS;
   if (process.env.NODE_ENV !== "production" || (docsUser && docsPass)) {
     await app.register(swagger, { openapi: { info: { title: "Hexavante Mobile API", version: "1.0.0" }, servers: [{ url: "https://mobile-api.hexavante.com.br", description: "Produção" }], components: { securitySchemes: { bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "JWT" } } } } });
-    await app.register(swaggerUi, { routePrefix: "/docs", uiHooks: { onRequest: (request, reply, done) => { if (!docsUser || !docsPass) return done(); const auth=request.headers.authorization; const decoded=auth?.startsWith("Basic ") ? Buffer.from(auth.slice(6),"base64").toString() : ""; if (decoded===`${docsUser}:${docsPass}`) return done(); reply.header("WWW-Authenticate", 'Basic realm="Hexavante API Docs"').code(401).send({error:"Autenticação necessária"}); } } });
+    await app.register(swaggerUi, { routePrefix: "/docs", uiHooks: { onRequest: (request, reply, done) => { if (!docsUser || !docsPass) return done(); const auth=request.headers.authorization; const decoded=auth?.startsWith("Basic ") ? Buffer.from(auth.slice(6),"base64").toString() : ""; if (decoded===`${docsUser}:${docsPass}`) return done(); reply.header("WWW-Authenticate", 'Basic realm="Hexavante API Docs"').code(401).send({error:"Autenticação necessária"}); done(); } } });
   }
 
   await app.register(healthRoutes);

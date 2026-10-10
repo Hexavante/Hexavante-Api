@@ -170,7 +170,7 @@ if (!docsAuth.enabled) {
         if (!auth || !auth.startsWith("Basic ")) {
           reply.header("WWW-Authenticate", 'Basic realm="Hexavante API Docs"');
           reply.code(401).send({ error: "Autenticação necessária" });
-          done(new Error("Unauthorized"));
+          done();
           return;
         }
         const decoded = Buffer.from(auth.slice(6), "base64").toString();
@@ -179,7 +179,7 @@ if (!docsAuth.enabled) {
           done();
         } else {
           reply.code(401).send({ error: "Credenciais inválidas" });
-          done(new Error("Unauthorized"));
+          done();
         }
       },
     },
