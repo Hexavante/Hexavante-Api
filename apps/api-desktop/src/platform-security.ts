@@ -7,11 +7,6 @@ export const TOKEN_ISSUER = process.env.DESKTOP_TOKEN_ISSUER || "https://desktop
 export const TOKEN_AUDIENCE = process.env.DESKTOP_TOKEN_AUDIENCE || "hexavante-desktop";
 const REQUIRED_SCOPE = "desktop:api";
 const PUBLIC_PATHS = new Set(["/", "/health"]);
-const TOKEN_RESPONSE_PATHS = new Set([
-  "/api/v1/auth/login",
-  "/api/v1/auth/verify-device",
-  "/oauth/exchange",
-]);
 
 function secret(): Uint8Array {
   const value = process.env.DESKTOP_TOKEN_SECRET || (process.env.NODE_ENV === "production" ? "" : "dev-only-desktop-token-secret-change-me");
@@ -66,19 +61,6 @@ function headerExempt(request: FastifyRequest): boolean {
   return request.method === "OPTIONS" || PUBLIC_PATHS.has(route) || route.startsWith("/docs") || (request.method === "GET" && route.startsWith("/oauth/"));
 }
 
-async function replaceSessionTokens(value: unknown): Promise<unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
-  const record = value as Record<string, unknown>;
-  const output: Record<string, unknown> = { ...record };
-  if (typeof record.token === "string") output.token = await signPlatformToken(record.token);
-  if (record.session && typeof record.session === "object" && !Array.isArray(record.session)) {
-    const session = { ...(record.session as Record<string, unknown>) };
-    if (typeof session.token === "string") session.token = await signPlatformToken(session.token);
-    output.session = session;
-  }
-  return output;
-}
-
 export async function registerPlatformSecurity(app: FastifyInstance): Promise<void> {
   app.addHook("onRequest", async (request, reply) => {
     if (!headerExempt(request)) {
@@ -105,11 +87,9 @@ export async function registerPlatformSecurity(app: FastifyInstance): Promise<vo
     }
   });
 
-  app.addHook("onSend", async (request, reply, payload) => {
-    if (reply.statusCode >= 300 || !TOKEN_RESPONSE_PATHS.has(routePath(request)) || typeof payload !== "string") return payload;
-    reply.removeHeader("set-cookie");
-    const contentType = String(reply.getHeader("content-type") || "");
-    if (!contentType.includes("application/json")) return payload;
-    try { return JSON.stringify(await replaceSessionTokens(JSON.parse(payload))); } catch { return payload; }
-  });
+  // Sem hook onSend: reescrever o corpo aqui exigiria I/O (assinar JWT),
+  // e hook onSend com I/O atrasa a finalizacao — o Fastify reenvia via
+  // wrap-thenable com corpo vazio/duplo (e derruba a conexao com
+  // ERR_HTTP_HEADERS_SENT). A troca por JWT acontece nos controllers
+  // (login, verify-device, oauth/exchange), em contexto async seguro.
 }

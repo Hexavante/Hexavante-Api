@@ -4,6 +4,7 @@ import { UnauthorizedError } from '../../../lib/errors/AppError';
 import { loginSchema, registerSchema } from '../schemas/auth.schemas';
 import { validateBody } from '../../../lib/validation/validate';
 import { extractSessionToken } from '../../../lib/session';
+import { signPlatformToken } from '../../../platform-security';
 import { resolveDeviceIp } from '../../security/service/security.service';
 
 export class AuthController {
@@ -39,19 +40,16 @@ export class AuthController {
       return;
     }
 
-    reply.setCookie('__Secure-hexavante.session_token', result.session.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 7 * 24 * 60 * 60, // 7 days
-      domain: process.env.NODE_ENV === 'production' ? '.hexavante.com.br' : undefined,
-    });
-
+    // App nativo: o token da resposta ja sai assinado como JWT da plataforma
+    // (assinar aqui, em contexto async do handler, em vez de reescrever no
+    // onSend — hook onSend com I/O atrasa a finalizacao e o Fastify reenvia
+    // a resposta com corpo vazio/duplo via wrap-thenable).
+    // Sem setCookie: nativos autenticam por Authorization Bearer e ignoram
+    // cookies; o gate da plataforma remove o cookie de sessao do dominio.
     reply.send({
       user: result.user,
       session: {
-        token: result.session.token,
+        token: await signPlatformToken(result.session.token),
         expiresAt: result.session.expiresAt,
       },
     });

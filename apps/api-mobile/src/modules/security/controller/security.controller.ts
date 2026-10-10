@@ -9,6 +9,7 @@ import {
   heartbeatSchema,
 } from "../schemas/security.schemas";
 import { validateBody } from "../../../lib/validation/validate";
+import { signPlatformToken } from "../../../platform-security";
 import { asyncHandler } from "../../../lib/errors/errorHandler";
 
 export class SecurityController {
@@ -27,7 +28,13 @@ export class SecurityController {
       ip,
       body.deviceId,
     );
-    reply.send(result);
+    // Mesmo motivo do login: assinar aqui evita I/O em hook onSend.
+    const session = result.session as { token: string; expiresAt: Date } | undefined;
+    reply.send(
+      session && typeof session.token === "string"
+        ? { ...result, session: { ...session, token: await signPlatformToken(session.token) } }
+        : result,
+    );
   });
 
   resendCode = asyncHandler(async (request: FastifyRequest, reply: FastifyReply) => {

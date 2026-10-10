@@ -14,6 +14,7 @@ import { findOrCreateOAuthUser } from '../service/oauth.service';
 import { createSession, validateSession } from '../../../lib/session';
 import { getRedisClient } from '../../../config/redis';
 import { asyncHandler } from '../../../lib/errors/errorHandler';
+import { signPlatformToken } from '../../../platform-security';
 
 /** TTL (s) do one-time code entregue aos apps nativos no redirect de sucesso. */
 const NATIVE_CODE_TTL_SECONDS = 120;
@@ -191,8 +192,10 @@ export async function oauthRoutes(fastify: FastifyInstance) {
     }
 
     // Mesmo shape de `data.user` do POST /api/v1/auth/login.
+    // Assina aqui (contexto async seguro); o onSend nao reescreve mais nada.
+    const platformToken = await signPlatformToken(token);
     return reply.status(200).send({
-      token,
+      token: platformToken,
       user: {
         id: session.user.id,
         name: session.user.fullName,
