@@ -18,7 +18,7 @@ async function createUser(
   data: {
     username: string;
     fullName: string;
-    birthDate: Date;
+    birthDate: string;
     role: string;
     level?: number;
     totalXp?: number;
@@ -74,7 +74,6 @@ async function createUser(
       // Better Auth requires a credential Account record for signInEmail
       accounts: {
         create: {
-          type: "credential",
           providerId: "credential",
           accountId: email,
           password: passwordHash,
@@ -666,7 +665,7 @@ async function main() {
   const admin = await createUser("admin@hexavante.com", adminPassword, {
     username: "admin",
     fullName: "Admin Hexavante",
-    birthDate: new Date("1990-01-01"),
+    birthDate: "1990-01-01",
     role: "ADMIN",
     level: 50,
     totalXp: 45000,
@@ -682,7 +681,7 @@ async function main() {
   const teacher = await createUser("teacher@hexavante.com", teacherPassword, {
     username: "professor",
     fullName: "Carlos Silva",
-    birthDate: new Date("1985-05-15"),
+    birthDate: "1985-05-15",
     role: "TEACHER",
     level: 30,
     totalXp: 25000,
@@ -697,7 +696,7 @@ async function main() {
   const moderator = await createUser("moderator@hexavante.com", modPassword, {
     username: "moderador",
     fullName: "Ana Beatriz",
-    birthDate: new Date("1995-03-20"),
+    birthDate: "1995-03-20",
     role: "MODERATOR",
     level: 20,
     totalXp: 15000,
@@ -711,7 +710,7 @@ async function main() {
   const user1 = await createUser("user@hexavante.com", userPassword, {
     username: "aluno1",
     fullName: "João Aluno",
-    birthDate: new Date("2002-07-10"),
+    birthDate: "2002-07-10",
     role: "USER",
     level: 8,
     totalXp: 3200,
@@ -725,7 +724,7 @@ async function main() {
   const user2 = await createUser("maria@hexavante.com", userPassword, {
     username: "maria_estudante",
     fullName: "Maria Oliveira",
-    birthDate: new Date("2003-11-22"),
+    birthDate: "2003-11-22",
     role: "USER",
     level: 12,
     totalXp: 5800,
@@ -740,7 +739,7 @@ async function main() {
   const user3 = await createUser("pedro@hexavante.com", userPassword, {
     username: "pedro_code",
     fullName: "Pedro Santos",
-    birthDate: new Date("2001-09-05"),
+    birthDate: "2001-09-05",
     role: "USER",
     level: 15,
     totalXp: 8900,
