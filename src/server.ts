@@ -43,6 +43,17 @@ const fastify = Fastify({
   trustProxy: true,
 });
 
+// Handler de erro ANTES de qualquer registro de rota: no Fastify 5, rotas
+// registradas (via `register`, contexto encapsulado) ANTES do setErrorHandler
+// mantêm o handler padrão para erros lançados em hooks (preHandler) —
+// ex.: validateBody devolvia 500 genérico em vez de 400. Erros lançados no
+// handler final (asyncHandler) não eram afetados, o que mascarava o bug.
+fastify.setErrorHandler((error, request, reply) => {
+  // handleError central já mapeia ZodError→400 e AppError→status correto.
+  if (reply.sent) return;
+  handleError(error, request, reply);
+});
+
 // Gateway temporário de compatibilidade. Clientes nativos novos devem usar
 // as APIs dedicadas; os headers permitem monitorar e comunicar a retirada sem
 // alterar os corpos ou status HTTP dos contratos existentes.
@@ -272,12 +283,6 @@ fastify.get("/", async () => {
     health: "/health",
     docs: "/docs",
   };
-});
-
-fastify.setErrorHandler((error, request, reply) => {
-  // handleError central já mapeia ZodError→400 e AppError→status correto.
-  if (reply.sent) return;
-  handleError(error, request, reply);
 });
 
 const gracefulShutdown = async (signal: string) => {

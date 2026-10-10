@@ -17,13 +17,18 @@ export function handleError(error: unknown, request: FastifyRequest, reply: Fast
   }
 
   if (error instanceof AppError) {
-    logger.warn({
-      error: error.message,
-      code: error.code,
-      statusCode: error.statusCode,
-      path: request.url,
-      method: request.method,
-    }, 'Application error');
+    // 429 do rate-limit: o plugin já emitiu o warn estruturado
+    // ("Rate limit exceeded", com ip/limit/ttl) no errorResponseBuilder —
+    // logar de novo aqui duplicaria a linha no docker logs.
+    if (error.statusCode !== 429) {
+      logger.warn({
+        error: error.message,
+        code: error.code,
+        statusCode: error.statusCode,
+        path: request.url,
+        method: request.method,
+      }, 'Application error');
+    }
 
     reply.status(error.statusCode).send({
       success: false,

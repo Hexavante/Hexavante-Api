@@ -48,6 +48,10 @@ function requireSecret(name: string): string {
 export async function buildApp() {
   const app = Fastify({ logger: false, trustProxy: true });
   app.addHook("onRequest", (request, _reply, done) => { request.log = logger as never; done(); });
+  // Handler de erro ANTES de qualquer registro de rota: no Fastify 5, rotas
+  // registradas (via `register`, contexto encapsulado) ANTES do setErrorHandler
+  // mantêm o handler padrão para erros lançados em hooks (preHandler).
+  app.setErrorHandler((error, request, reply) => { if (!reply.sent) handleError(error, request, reply); });
   await app.register(corsPlugin);
   await app.register(helmetPlugin);
   await registerGlobalRateLimit(app);
@@ -87,7 +91,6 @@ export async function buildApp() {
   await app.register(paymentsRoutes);
   await app.register(moderationRoutes);
   app.get("/", async () => ({ status: "ok", platform: PLATFORM, issuer: TOKEN_ISSUER, audience: TOKEN_AUDIENCE, version: "1.0.0", health: "/health", docs: "/docs" }));
-  app.setErrorHandler((error, request, reply) => { if (!reply.sent) handleError(error, request, reply); });
   await app.ready();
   return app;
 }
