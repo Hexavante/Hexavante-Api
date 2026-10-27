@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"strings"
 	"time"
 
@@ -12,39 +13,38 @@ import (
 
 var DB *sql.DB
 
-// formatDSN converte URIs estilo mysql://usuario:senha@host:porta/banco para DSN compatível com go-sql-driver
+// formatDSN converte URIs estilo mysql://usuario:senha@host:porta/banco para DSN compatível com go-sql-driver.
+// url.Parse já decodifica %XX do userinfo; decodificar de novo (QueryUnescape)
+// quebraria senhas com `%` literal e transformaria `+` em espaço.
 func formatDSN(rawURL string) string {
 	if !strings.HasPrefix(rawURL, "mysql://") {
 		return rawURL
 	}
 
-	// Remove mysql://
-	trimmed := strings.TrimPrefix(rawURL, "mysql://")
-	
-	// auth@host/db
-	parts := strings.SplitN(trimmed, "@", 2)
-	if len(parts) != 2 {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Host == "" {
 		return rawURL
 	}
-	auth := parts[0]
-	rest := parts[1]
 
-	slashIdx := strings.Index(rest, "/")
-	if slashIdx == -1 {
-		return rawURL
-	}
-	hostPort := rest[:slashIdx]
-	dbAndParams := rest[slashIdx+1:]
-
-	dsn := fmt.Sprintf("%s@tcp(%s)/%s", auth, hostPort, dbAndParams)
-	if !strings.Contains(dsn, "parseTime=true") {
-		if strings.Contains(dsn, "?") {
-			dsn += "&parseTime=true"
-		} else {
-			dsn += "?parseTime=true"
+	auth := ""
+	if u.User != nil {
+		auth = u.User.Username()
+		if pass, ok := u.User.Password(); ok && pass != "" {
+			auth += ":" + pass
 		}
 	}
-	return dsn
+
+	dbName := strings.TrimPrefix(u.Path, "/")
+
+	params := u.Query()
+	if !params.Has("parseTime") {
+		params.Set("parseTime", "true")
+	}
+	if !params.Has("charset") {
+		params.Set("charset", "utf8mb4")
+	}
+
+	return fmt.Sprintf("%s@tcp(%s)/%s?%s", auth, u.Host, dbName, params.Encode())
 }
 
 func Connect(dbURL string) (*sql.DB, error) {

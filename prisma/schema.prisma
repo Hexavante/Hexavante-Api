@@ -66,6 +66,7 @@ model User {
   lessonProgresses   LessonProgress[]
   lessonFavorites    LessonFavorite[]
   lessonNotes        LessonNote[]
+  studyPreferences   UserStudyPreferences?
   examAttempts           ExamAttempt[]
   examQuestionFavorites  ExamQuestionFavorite[]
   instructorApplications InstructorApplication[]
@@ -479,18 +480,36 @@ model LessonFavorite {
 }
 
 model LessonNote {
-  id        String   @id @default(cuid())
-  userId    String   @map("user_id")
-  lessonId  String   @map("lesson_id")
-  content   String   @db.Text
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  lessonId   String   @map("lesson_id")
+  content    String   @db.Text
+  isFavorite Boolean  @default(false) @map("is_favorite")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 
   @@unique([userId, lessonId])
   @@index([userId])
+  @@index([userId, isFavorite])
   @@map("lesson_notes")
+}
+
+model UserStudyPreferences {
+  id            String    @id @default(cuid())
+  userId        String    @unique @map("user_id")
+  diagramType   String    @default("auto") @map("diagram_type")
+  detailLevel   String    @default("intermediate") @map("detail_level")
+  autoSuggest   Boolean   @default(true) @map("auto_suggest")
+  animations    Boolean   @default(true)
+  autoSaveNotes Boolean   @default(true) @map("autosave_notes")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_study_preferences")
 }
 
 model Material {

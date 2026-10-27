@@ -18,9 +18,10 @@
 #      versionado — ele já está no .gitignore.
 #
 #  As portas 3306 (mysql) e 6379 (redis) foram removidas da exposição
-#  pública; os serviços agora usam apenas a rede interna
-#  "hexavante-net". O container da API (3045) é o único acessado de
-#  fora, via Nginx.
+#  pública; os serviços agora usam apenas a rede interna "hexavante-net".
+#  O acesso externo é feito só pelo Nginx, que divide as rotas entre a
+#  Fastify (auth, cursos, loja, pagamentos) e este serviço Go
+#  (notes, visual, study, health) — ver docs/arquitetura-apis.md.
 # ===================================================================
 
 services:
@@ -64,34 +65,35 @@ services:
       retries: 5
 
   api:
-    build: .
+    # Serviço Go (notes/visual/study/health). NÃO substitui a Fastify: o nginx
+    # divide /api/v1/* entre os dois upstreams. Ver docs/arquitetura-apis.md.
+    # Build usa ./go-service (fonte versionada). Webs/Hexavante-api-go é uma
+    # cópia sem git — não edite lá.
+    build:
+      context: ./go-service
+      dockerfile: Dockerfile
     container_name: hexavante-api
     restart: unless-stopped
     depends_on:
       mysql:
         condition: service_healthy
-      redis:
-        condition: service_healthy
     networks:
       - hexavante-net
     environment:
-      # DATABASE_URL herdada das credenciais do serviço mysql;
-      # sobrescreva via variável externa (docker run -e DATABASE_URL=...) se necessário.
-      # Senha com caracteres especiais (ex: "/") deve vir URL-encodeada na URL completa.
-      DATABASE_URL: "${DATABASE_URL:-mysql://hexavante:${MYSQL_PASSWORD}@mysql:3306/hexavante}"
-      AUTH_SECRET: ${AUTH_SECRET}
-      # P1-10: URL do app web para o OAuth (default de callbackURL).
-      # Separada de CORS_ORIGIN, que serve só para CORS.
-      WEB_URL: "${WEB_URL:-https://app.hexavante.com.br}"
-      REDIS_URL: redis://redis:6379
       PORT: 3045
-      HOST: 0.0.0.0
+      # Mesmo formato da Fastify; o driver Go converte mysql:// para DSN.
+      DATABASE_URL: "${DATABASE_URL:-mysql://hexavante:${MYSQL_PASSWORD}@mysql:3306/hexavante}"
+      FRONTEND_URL: "${WEB_URL:-https://app.hexavante.com.br}"
       NODE_ENV: production
-      # P1-9: lista explícita (com credentials:true o "*" nunca igualaria
-      # um Origin real). Inclui landing, app web e admin (painel).
       CORS_ORIGIN: "https://hexavante.com.br,https://www.hexavante.com.br,https://app.hexavante.com.br,https://painel.hexavante.com.br"
     ports:
       - "3045:3045"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3045/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
 networks:
   hexavante-net:

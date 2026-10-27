@@ -18,15 +18,23 @@ Documento de referência do deploy **implementado** na VPS.
 
 ## Topologia
 
+> [!IMPORTANT]
+> Produção roda **duas APIs**, com posse de rotas dividida no nginx — não é
+> "Fastify substituída". Veja `docs/arquitetura-apis.md` para o mapa por path.
+
 ```
-Internet ──HTTPS──▶ Nginx ──▶ 127.0.0.1:3045 ──▶ hexavante-api (node dist/server.js)
-                                                    ├─ MySQL (hexavante-mysql:3306, rede interna hexavante-net)
-                                                    └─ Redis (hexavante-redis:6379, rede interna hexavante-net)
+Internet ──HTTPS──▶ Nginx ─┬─▶ /api/v1/notes|visual|study|health ─▶ Go (go-service, :3045)
+                           └─▶ resto de /api/v1/* e /docs ─────────▶ Fastify (Node)
+                                                                     ├─ MySQL (hexavante-mysql:3306, rede interna hexavante-net)
+                                                                     └─ Redis (hexavante-redis:6379, rede interna hexavante-net)
 ```
 
 MySQL (3306) e Redis (6379) **não têm portas publicadas** no `docker-compose.yml`:
 comunicam-se com a API apenas pela rede interna `hexavante-net`. O único ponto
 acessível de fora do Docker é a porta `3045` da API, atrás do Nginx.
+
+O `docker-compose.yml` deste repositório sobe só o Go; o Fastify continua em
+outro container. Não trate esse arquivo como "substituição total".
 
 ## Passo a passo (`/opt/hexavante-api`)
 
@@ -47,7 +55,8 @@ docker run -d --name hexavante-api --network hexavante_default -p 3045:3045 \
   --restart unless-stopped hexavante-api
 ```
 
-O entrypoint roda `prisma db push` (recusa mudanças destrutivas sozinho) e sobe o server.
+O serviço Go não roda migration. Mudanças de schema seguem
+`docs/arquitetura-apis.md` (migration no app → `prisma migrate deploy` → deploy do Go).
 
 ## Verificação
 
