@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	emailRe   = regexp.MustCompile(`^[^\s@]+@[^\s@]+\.[^\s@]+$`)
+	emailRe    = regexp.MustCompile(`^[^\s@]+@[^\s@]+\.[^\s@]+$`)
 	usernameRe = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 )
 
@@ -98,9 +98,9 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	var (
 		id, fullName, dbEmail, hash string
 		username, avatarURL         sql.NullString
-		emailVerified              bool
-		twoFactorEnabled           bool
-		passwordHash               sql.NullString
+		emailVerified               bool
+		twoFactorEnabled            bool
+		passwordHash                sql.NullString
 	)
 	err := database.DB.QueryRowContext(r.Context(), `
 		SELECT id, full_name, email, username, avatar_url, email_verified, two_factor_enabled, password_hash
@@ -139,6 +139,8 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		purpose := "DEVICE"
 		if reason == "EMAIL_VERIFY" {
 			purpose = "EMAIL_VERIFY"
+		} else if reason == "TWO_FACTOR" {
+			purpose = "TWO_FACTOR_LOGIN"
 		}
 		vid, ierr := issueCode(r, id, dbEmail, fingerprint, purpose, ids.DeviceDisplayName(ua, ip))
 		if ierr != nil {
