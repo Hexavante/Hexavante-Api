@@ -56,7 +56,14 @@ export class AuthService {
         userId: user.id,
         email: user.email,
         fingerprint,
-        purpose: reason === "EMAIL_VERIFY" ? "EMAIL_VERIFY" : "DEVICE",
+        // TWO_FACTOR precisa de purpose próprio: com "DEVICE", o e-mail saía
+        // como "novo dispositivo" e o verify-device criava sessão sem 2FA.
+        purpose:
+          reason === "EMAIL_VERIFY"
+            ? "EMAIL_VERIFY"
+            : reason === "TWO_FACTOR"
+              ? "TWO_FACTOR_LOGIN"
+              : "DEVICE",
         deviceName: deviceDisplayName(userAgent, ipAddress),
       });
       return { requiresVerification: true as const, verificationId, reason };

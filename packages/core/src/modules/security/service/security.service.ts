@@ -15,6 +15,19 @@ const RESEND_COOLDOWN_MS = 60 * 1000;
 const MAX_ATTEMPTS = 5;
 const OFFLINE_AFTER_MS = 5 * 60 * 1000;
 
+/**
+ * `TWO_FACTOR` habilita o 2FA nas configurações (exige sessão).
+ * `TWO_FACTOR_LOGIN` é o desafio de 2FA durante o login (não cria sessão
+ * sozinho além do próprio login e não pode ser usado para habilitar 2FA).
+ * Separar os dois impede que um código de uma finalidade vaze para a outra.
+ */
+export type CodePurpose =
+  | "DEVICE"
+  | "TWO_FACTOR"
+  | "TWO_FACTOR_LOGIN"
+  | "EMAIL_VERIFY"
+  | "PASSWORD_RESET";
+
 export function fingerprintDevice(userAgent: string | undefined, ip: string | undefined): string {
   return createHash("sha256")
     .update(`${userAgent ?? "unknown"}|${ip ?? "unknown"}`)
@@ -138,7 +151,7 @@ export class SecurityService {
     userId: string;
     email: string;
     fingerprint?: string | null;
-    purpose: "DEVICE" | "TWO_FACTOR" | "EMAIL_VERIFY" | "PASSWORD_RESET";
+    purpose: CodePurpose;
     deviceName?: string;
   }  ): Promise<{ verificationId: string }> {
     // NOTA: códigos anteriores continuam válidos até expirar (10 min).
@@ -216,7 +229,7 @@ export class SecurityService {
       userId,
       email: record.user.email,
       fingerprint: record.fingerprint,
-      purpose: record.purpose as "DEVICE" | "TWO_FACTOR",
+      purpose: record.purpose as CodePurpose,
     });
   }
 
@@ -260,22 +273,48 @@ export class SecurityService {
     ip?: string,
     deviceId?: string,
   ) {
-    const { userId, fingerprint } = await this.consumeCode(verificationId, code);
+    const { userId, fingerprint, purpose } = await this.consumeCode(verificationId, code);
+
+    // Só códigos de login podem virar sessão. PASSWORD_RESET e o TWO_FACTOR
+    // de configuração têm fluxos próprios e não autenticam ninguém aqui.
+    if (purpose !== "DEVICE" && purpose !== "EMAIL_VERIFY" && purpose !== "TWO_FACTOR_LOGIN") {
+      throw new BadRequestError("Verificação inválida.");
+    }
+
     // O fingerprint gravado no login tem precedência (amarra login→verify);
     // sem ele, deviceId do cliente ou legado UA+IP.
     const fp = fingerprint ?? resolveDeviceFingerprint({ deviceId, userAgent, ip });
-    await this.trustDevice(userId, fp, userAgent, ip);
-    // Confirmar o código prova a posse do e-mail
-    await prisma.user.updateMany({
-      where: { id: userId, emailVerified: false },
-      data: { emailVerified: true },
-    });
+
+    if (purpose !== "TWO_FACTOR_LOGIN") {
+      await this.trustDevice(userId, fp, userAgent, ip);
+      // Confirmar o código prova a posse do e-mail
+      await prisma.user.updateMany({
+        where: { id: userId, emailVerified: false },
+        data: { emailVerified: true },
+      });
+    }
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: { roles: { include: { role: true } } },
     });
     if (!user) throw new NotFoundError("Usuário não encontrado.");
+
+    // 2FA nunca é pulado: confirmar dispositivo/e-mail ainda não basta.
+    // Emite o desafio e só cria a sessão depois do código de 2FA.
+    if (user.twoFactorEnabled && purpose !== "TWO_FACTOR_LOGIN") {
+      const { verificationId: nextId } = await this.issueCode({
+        userId,
+        email: user.email,
+        fingerprint: fp,
+        purpose: "TWO_FACTOR_LOGIN",
+      });
+      return {
+        requiresVerification: true as const,
+        verificationId: nextId,
+        reason: "TWO_FACTOR" as const,
+      };
+    }
 
     await new ShopService().ensureActiveTheme(user.id);
     return this.buildSession(user.id, ip, userAgent);
@@ -396,7 +435,16 @@ export class SecurityService {
     return { enabled };
   }
 
-  async confirmTwoFactor(verificationId: string, code: string) {
+  async confirmTwoFactor(verificationId: string, code: string, expectedUserId?: string) {
+    // O verificationId vem do corpo: sem checar o dono, qualquer sessão
+    // autenticada habilitaria 2FA na conta de outro usuário.
+    const record = await prisma.deviceVerificationCode.findUnique({
+      where: { id: verificationId },
+      select: { userId: true },
+    });
+    if (!record || (expectedUserId && record.userId !== expectedUserId)) {
+      throw new BadRequestError("Verificação inválida.");
+    }
     const { userId, purpose } = await this.consumeCode(verificationId, code);
     if (purpose !== "TWO_FACTOR") throw new BadRequestError("Verificação inválida.");
     await prisma.user.update({ where: { id: userId }, data: { twoFactorEnabled: true } });

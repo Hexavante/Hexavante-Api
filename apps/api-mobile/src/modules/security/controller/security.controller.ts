@@ -29,7 +29,12 @@ export class SecurityController {
       body.deviceId,
     );
     // Mesmo motivo do login: assinar aqui evita I/O em hook onSend.
-    const session = result.session as { token: string; expiresAt: Date } | undefined;
+    // requiresVerification (2FA) não tem sessão para assinar.
+    if ("requiresVerification" in result) {
+      reply.send(result);
+      return;
+    }
+    const session = result.session;
     reply.send(
       session && typeof session.token === "string"
         ? { ...result, session: { ...session, token: await signPlatformToken(session.token) } }

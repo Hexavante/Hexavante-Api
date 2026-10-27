@@ -80,7 +80,11 @@ export class SecurityController {
   confirmTwoFactor = asyncHandler(async (request: FastifyRequest, reply: FastifyReply) => {
     await validateBody(verifyDeviceSchema)(request, reply);
     const body = request.body as { verificationId: string; code: string };
-    const result = await this.securityService.confirmTwoFactor(body.verificationId, body.code);
+    const result = await this.securityService.confirmTwoFactor(
+      body.verificationId,
+      body.code,
+      request.user!.id,
+    );
     reply.send(result);
   });
 

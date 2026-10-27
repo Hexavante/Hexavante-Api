@@ -132,6 +132,49 @@ describe("AuthService", () => {
         requiresVerification: true,
         verificationId: "ver-1",
       });
+      expect(prisma.deviceVerificationCode.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ purpose: "DEVICE" }),
+      });
+    });
+
+    it("dispositivo confiável com 2FA ativo pede TWO_FACTOR_LOGIN", async () => {
+      const mockUser = {
+        id: "user-1",
+        email: "test@example.com",
+        fullName: "Test User",
+        username: "testuser",
+        passwordHash: "hashed-password",
+        avatarUrl: null,
+        twoFactorEnabled: true,
+        emailVerified: true,
+        roles: [{ role: { name: "user" } }],
+      };
+
+      vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any);
+      const { verifyPassword } = await import("../../../../packages/core/src/lib/password");
+      vi.mocked(verifyPassword).mockResolvedValue(true);
+      vi.mocked(prisma.trustedDevice.findUnique).mockResolvedValue({
+        revokedAt: null,
+      } as any);
+      vi.mocked(prisma.deviceVerificationCode.create).mockResolvedValue({
+        id: "ver-2",
+      } as any);
+
+      const result = await authService.signIn(
+        "test@example.com",
+        "password123",
+        "127.0.0.1",
+        "test-agent",
+      );
+
+      expect(result).toMatchObject({
+        requiresVerification: true,
+        verificationId: "ver-2",
+        reason: "TWO_FACTOR",
+      });
+      expect(prisma.deviceVerificationCode.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ purpose: "TWO_FACTOR_LOGIN" }),
+      });
     });
 
     it("should return null when user does not exist", async () => {
