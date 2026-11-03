@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { prisma } from '../../../config/prisma';
 import { generateUsername } from '../../../config/oauth';
 
@@ -19,6 +20,19 @@ export interface OAuthUser {
 }
 
 export async function findOrCreateOAuthUser(profile: OAuthProfile): Promise<OAuthUser> {
+  const base = generateUsername(profile.name, profile.email);
+  for (let attempt = 0; ; attempt++) {
+    const username = attempt === 0 ? base : base + '_' + randomBytes(4).toString('hex');
+    try {
+      return await resolveOAuthUser(profile, username);
+    } catch (error) {
+      // Outro callback pode ter criado a conta ou ocupado o username entre as consultas.
+      if (attempt >= 2 || !(error instanceof Error && 'code' in error && error.code === 'P2002')) throw error;
+    }
+  }
+}
+
+async function resolveOAuthUser(profile: OAuthProfile, username: string): Promise<OAuthUser> {
   // 1. Procura account existente pelo provider+providerId
   const existingAccount = await prisma.account.findUnique({
     where: {
@@ -71,7 +85,6 @@ export async function findOrCreateOAuthUser(profile: OAuthProfile): Promise<OAut
   }
 
   // 3. Cria user novo + account
-  const username = generateUsername(profile.name, profile.email);
   const userRole = await prisma.role.findUnique({ where: { name: 'USER' } });
 
   user = await prisma.user.create({
@@ -86,19 +99,11 @@ export async function findOrCreateOAuthUser(profile: OAuthProfile): Promise<OAut
       birthDate: '2000-01-01',
       xp: { create: {} },
       wallet: { create: {} },
+      accounts: { create: { providerId: profile.provider, accountId: profile.providerId } },
       ...(userRole && { roles: { create: { roleId: userRole.id } } }),
     },
     include: {
       roles: { include: { role: true } },
-    },
-  });
-
-  // Cria a account
-  await prisma.account.create({
-    data: {
-      userId: user.id,
-      providerId: profile.provider,
-      accountId: profile.providerId,
     },
   });
 
