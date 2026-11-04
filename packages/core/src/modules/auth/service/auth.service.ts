@@ -119,7 +119,11 @@ export class AuthService {
         phone: data.phone || null,
         city: data.city || null,
         state: data.state || null,
-        roles: { create: roles.map(name => ({ role: { connect: { name } } })) },
+        roles: {
+          create: roles.map(name => ({
+            role: { connectOrCreate: { where: { name }, create: { name } } },
+          })),
+        },
         xp: { create: {} },
         wallet: { create: {} },
       },

@@ -236,7 +236,10 @@ describe("AuthService", () => {
         password:"password123", birthDate:new Date("2000-01-01"), accountType:"INSTRUCTOR" });
       expect(user.roles).toEqual(["USER",role]);
       expect(prisma.user.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({
-        roles:{create:[{role:{connect:{name:"USER"}}},{role:{connect:{name:role}}}]}
+        roles:{create:[
+          {role:{connectOrCreate:{where:{name:"USER"},create:{name:"USER"}}}},
+          {role:{connectOrCreate:{where:{name:role},create:{name:role}}}},
+        ]}
       })}));
     });
     it("should create a new user successfully", async () => {
