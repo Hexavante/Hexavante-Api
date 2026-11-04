@@ -13,6 +13,7 @@ export const loginSchema = z.object({
 });
 
 export const registerSchema = z.object({
+  accountType: z.enum(["STUDENT", "INSTRUCTOR"]).optional(),
   username: z
     .string()
     .min(3, 'Mínimo 3 caracteres')

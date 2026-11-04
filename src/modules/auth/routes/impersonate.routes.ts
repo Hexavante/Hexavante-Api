@@ -19,8 +19,8 @@ function requireAdminId(request: FastifyRequest): string {
   const roles = Array.isArray(user?.roles)
     ? user.roles.map((r) => (typeof r === 'string' ? r : (r?.role?.name ?? r?.name ?? '')))
     : [];
-  if (!roles.includes('ADMIN')) {
-    throw new ForbiddenError('Acesso restrito a administradores');
+  if (!roles.includes('SUPERADMIN')) {
+    throw new ForbiddenError('Acesso restrito a superadministradores');
   }
   return user.id;
 }
@@ -49,24 +49,23 @@ export async function impersonateRoutes(fastify: FastifyInstance) {
       const adminId = requireAdminId(request);
       const { userId } = request.body as { userId: string };
 
-      const target = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { id: true, email: true, fullName: true },
-      });
-      if (!target) throw new NotFoundError('Usuário não encontrado');
-
-      const session = await createSession(
-        target.id,
-        request.ip,
-        request.headers['user-agent'] as string | undefined,
-      );
-      await prisma.session.update({
-        where: { id: (session as { id: string }).id },
-        data: { impersonatedBy: adminId },
-      });
+      const { session, user } = await prisma.$transaction(async db => {
+        const actor = await db.userRole.findFirst({ where: { userId: adminId, role: { name: 'SUPERADMIN' } }, select: { userId: true } });
+        if (!actor) throw new ForbiddenError('Acesso restrito a superadministradores');
+        const target = await db.user.findUnique({ where: { id: userId }, select: {
+          id:true, email:true, fullName:true, role:true, roles:{select:{role:{select:{name:true}}}}
+        } });
+        if (!target) throw new NotFoundError('Usuário não encontrado');
+        const targetRoles = [target.role.toUpperCase(), ...target.roles.map(r => r.role.name)];
+        if (target.id === adminId || targetRoles.some(role => ['MODERATOR', 'ADMIN', 'SUPERADMIN'].includes(role))) {
+          throw new ForbiddenError('Não é permitido impersonar staff.');
+        }
+        const session = await createSession(target.id, request.ip, request.headers['user-agent'], { impersonatedBy:adminId, db });
+        return { session, user:{id:target.id, email:target.email, fullName:target.fullName} };
+      }, { isolationLevel: 'Serializable' });
 
       reply.setCookie('__Secure-hexavante.session_token', session.token, sessionCookieOptions());
-      reply.send({ success: true, user: target });
+      reply.send({ success: true, user });
     }),
   );
 

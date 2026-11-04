@@ -143,6 +143,7 @@ describe("AuthController", () => {
       };
       mockAuthService.signUp.mockResolvedValue({
         id: "user-1",
+        roles: ["USER"],
         username: "newuser",
         email: "new@example.com",
         fullName: "New User",
