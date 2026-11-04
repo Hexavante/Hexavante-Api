@@ -228,6 +228,17 @@ describe("AuthService", () => {
   });
 
   describe("signUp", () => {
+    it.each(["INSTRUCTOR", "TEACHER"])("persiste o papel docente disponível (%s) antes do login", async (role) => {
+      vi.mocked(prisma.role.findUnique).mockResolvedValueOnce(role === "INSTRUCTOR" ? { id: "r1" } as any : null);
+      vi.mocked(prisma.user.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.user.create).mockResolvedValue({ id: "autor" } as any);
+      const user = await authService.signUp({ fullName:"Autor Novo", username:"autor", email:"autor@example.com",
+        password:"password123", birthDate:new Date("2000-01-01"), accountType:"INSTRUCTOR" });
+      expect(user.roles).toEqual(["USER",role]);
+      expect(prisma.user.create).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({
+        roles:{create:[{role:{connect:{name:"USER"}}},{role:{connect:{name:role}}}]}
+      })}));
+    });
     it("should create a new user successfully", async () => {
       const userData = {
         email: "new@example.com",

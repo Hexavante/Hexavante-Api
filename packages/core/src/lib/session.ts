@@ -20,13 +20,14 @@ export interface SessionData {
   };
 }
 
-export async function createSession(userId: string, ipAddress?: string, userAgent?: string): Promise<SessionData> {
+export async function createSession(userId: string, ipAddress?: string, userAgent?: string, options?: { impersonatedBy: string; db: Pick<typeof prisma, "session"> }): Promise<SessionData> {
   const token = randomBytes(SESSION_TOKEN_BYTES).toString('base64url');
   const expiresAt = new Date(Date.now() + SESSION_DURATION_DAYS * 24 * 60 * 60 * 1000);
 
-  const session = await prisma.session.create({
+  const session = await (options?.db ?? prisma).session.create({
     data: {
       token,
+      ...(options && { impersonatedBy: options.impersonatedBy }),
       userId,
       expiresAt,
       ipAddress: ipAddress || null,

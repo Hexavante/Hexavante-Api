@@ -103,7 +103,11 @@ export class AuthService {
     }
 
     const passwordHash = await hashPassword(data.password);
-    const userRole = await prisma.role.findUnique({ where: { name: 'USER' } });
+    const roles = ['USER'];
+    if (data.accountType === 'INSTRUCTOR') {
+      const instructor = await prisma.role.findUnique({ where: { name: 'INSTRUCTOR' }, select: { id: true } });
+      roles.push(instructor ? 'INSTRUCTOR' : 'TEACHER');
+    }
 
     const created = await prisma.user.create({
       data: {
@@ -115,11 +119,7 @@ export class AuthService {
         phone: data.phone || null,
         city: data.city || null,
         state: data.state || null,
-        ...(userRole && {
-          roles: {
-            create: { roleId: userRole.id },
-          },
-        }),
+        roles: { create: roles.map(name => ({ role: { connect: { name } } })) },
         xp: { create: {} },
         wallet: { create: {} },
       },
@@ -148,7 +148,7 @@ export class AuthService {
     }
     await new ShopService().ensureActiveTheme(created.id);
 
-    return created;
+    return { ...created, roles: [...roles] };
   }
 
   async signOut(token: string) {
