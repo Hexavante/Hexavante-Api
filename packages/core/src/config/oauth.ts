@@ -83,36 +83,6 @@ export const oauthProviders: Record<string, OAuthProviderDefinition> = {
       };
     },
   },
-  github: {
-    name: 'github',
-    label: 'GitHub',
-    getUserInfo: async (accessToken: string) => {
-      const res = await fetch('https://api.github.com/user', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (!res.ok) throw new Error('Failed to fetch GitHub user info');
-      const data = await res.json() as any;
-
-      let email = data.email as string | null;
-      if (!email) {
-        const emailsRes = await fetch('https://api.github.com/user/emails', {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (emailsRes.ok) {
-          const emails = (await emailsRes.json()) as any[];
-          const primary = emails.find((e: any) => e.primary);
-          email = primary?.email || emails[0]?.email;
-        }
-      }
-
-      return {
-        providerId: String(data.id),
-        email: email || '',
-        name: data.name || data.login || '',
-        avatarUrl: data.avatar_url || null,
-      };
-    },
-  },
   microsoft: {
     name: 'microsoft',
     label: 'Microsoft',
@@ -155,7 +125,9 @@ export const oauthProviders: Record<string, OAuthProviderDefinition> = {
 };
 
 /** Providers OAuth suportados pela API (mesmo conjunto de `oauthProviders`). */
-export const OAUTH_PROVIDER_IDS = ['google', 'github', 'microsoft', 'discord'] as const;
+// GitHub foi removido como opção de login (nov/2026). Contas criadas por ele
+// continuam válidas: entram pelo Google com o mesmo e-mail ou por e-mail/senha.
+export const OAUTH_PROVIDER_IDS = ['google', 'microsoft', 'discord'] as const;
 
 export function getOAuthConfig(provider: string): OAuthProviderConfig | null {
   switch (provider) {
@@ -167,15 +139,6 @@ export function getOAuthConfig(provider: string): OAuthProviderConfig | null {
         tokenEndpoint: 'https://oauth2.googleapis.com/token',
         scopes: ['openid', 'email', 'profile'],
         enabled: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
-      };
-    case 'github':
-      return {
-        clientId: process.env.GITHUB_CLIENT_ID || '',
-        clientSecret: process.env.GITHUB_CLIENT_SECRET || '',
-        authorizationEndpoint: 'https://github.com/login/oauth/authorize',
-        tokenEndpoint: 'https://github.com/login/oauth/access_token',
-        scopes: ['user:email'],
-        enabled: !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
       };
     case 'microsoft':
       return {
@@ -203,9 +166,8 @@ export function getOAuthConfig(provider: string): OAuthProviderConfig | null {
 /**
  * Interpreta a resposta do token exchange.
  *
- * Google, Microsoft e Discord devolvem JSON; GitHub devolve
- * `application/x-www-form-urlencoded` a menos que se peça
- * `Accept: application/json`. Aceita os dois formatos para qualquer provider
+ * Google, Microsoft e Discord devolvem JSON. Alguns provedores devolvem
+ * `application/x-www-form-urlencoded`; aceita os dois formatos
  * (e também tolera corpo vazio, que vira `{}` → "oauth_no_token").
  */
 export function parseTokenResponse(text: string): Record<string, string> {

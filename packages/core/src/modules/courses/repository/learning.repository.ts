@@ -1,5 +1,4 @@
 import { prisma } from "../../../config/prisma";
-import type { CoinSource, XpSource } from "@prisma/client";
 
 export interface CourseEnrollmentRecord {
   id: string;
@@ -57,26 +56,6 @@ export interface ILearningRepository {
     data: { progress: number; completedAt: Date | null },
   ): Promise<void>;
   countCompletedInModule(userId: string, moduleLessonIds: string[]): Promise<number>;
-  hasXpAward(userId: string, source: XpSource, sourceId: string): Promise<boolean>;
-  createXpAward(
-    userId: string,
-    amount: number,
-    source: XpSource,
-    sourceId: string,
-    description: string,
-  ): Promise<void>;
-  hasCoinAward(userId: string, source: CoinSource, sourceId: string): Promise<boolean>;
-  createCoinAward(
-    userId: string,
-    amount: number,
-    source: CoinSource,
-    sourceId: string,
-    description: string,
-  ): Promise<void>;
-  awardXpAmount(userId: string, amount: number): Promise<void>;
-  awardCoinsAmount(userId: string, amount: number): Promise<void>;
-  getTotalXp(userId: string): Promise<number>;
-  getBoosterMultiplier(userId: string): Promise<number>;
   getUserXpProfile(userId: string): Promise<{ level: number; currentXp: number; totalXp: number }>;
 }
 
@@ -222,96 +201,6 @@ export class CourseLearningRepository implements ILearningRepository {
     return prisma.lessonProgress.count({
       where: { userId, completed: true, lessonId: { in: moduleLessonIds } },
     });
-  }
-
-  async hasXpAward(userId: string, source: XpSource, sourceId: string) {
-    const t = await prisma.xpTransaction.findUnique({
-      where: { userId_source_sourceId: { userId, source, sourceId } },
-      select: { id: true },
-    });
-    return !!t;
-  }
-
-  async createXpAward(
-    userId: string,
-    amount: number,
-    source: XpSource,
-    sourceId: string,
-    description: string,
-  ) {
-    await prisma.xpTransaction.create({ data: { userId, amount, source, sourceId, description } });
-    let xp = await prisma.userXP.findUnique({ where: { userId } });
-    if (!xp) {
-      xp = await prisma.userXP.create({ data: { userId } });
-    }
-    let newLevel = Math.max(1, xp.level);
-    let newCurrentXp = xp.currentXp + amount;
-    const newTotalXp = xp.totalXp + amount;
-    while (newCurrentXp >= newLevel * 100) {
-      newCurrentXp -= newLevel * 100;
-      newLevel += 1;
-    }
-    await prisma.userXP.update({
-      where: { userId },
-      data: { level: newLevel, currentXp: newCurrentXp, totalXp: newTotalXp },
-    });
-  }
-
-  async hasCoinAward(userId: string, source: CoinSource, sourceId: string) {
-    const t = await prisma.coinTransaction.findUnique({
-      where: { userId_source_sourceId: { userId, source, sourceId } },
-      select: { id: true },
-    });
-    return !!t;
-  }
-
-  async createCoinAward(
-    userId: string,
-    amount: number,
-    source: CoinSource,
-    sourceId: string,
-    description: string,
-  ) {
-    await prisma.coinTransaction.create({
-      data: { userId, amount, type: "EARN", source, sourceId, description },
-    });
-    await prisma.user.update({
-      where: { id: userId },
-      data: { coins: { increment: amount } },
-    });
-  }
-
-  async awardXpAmount(userId: string, amount: number) {
-    await prisma.userXP.upsert({
-      where: { userId },
-      create: { userId, currentXp: amount, totalXp: amount },
-      update: { currentXp: { increment: amount }, totalXp: { increment: amount } },
-    });
-  }
-
-  async awardCoinsAmount(userId: string, amount: number) {
-    await prisma.user.update({
-      where: { id: userId },
-      data: { coins: { increment: amount } },
-    });
-  }
-
-  async getTotalXp(userId: string) {
-    const xp = await prisma.userXP.findUnique({
-      where: { userId },
-      select: { totalXp: true },
-    });
-    return xp?.totalXp ?? 0;
-  }
-
-  async getBoosterMultiplier(userId: string) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { boosterMultiplier: true, boosterExpiresAt: true },
-    });
-    if (!user?.boosterExpiresAt || user.boosterExpiresAt <= new Date()) return 1;
-    const m = user.boosterMultiplier ?? 1;
-    return m > 0 ? m : 1;
   }
 
   async getUserXpProfile(userId: string) {

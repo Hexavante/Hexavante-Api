@@ -5,6 +5,7 @@ import { createSession } from "../../../lib/session";
 import { hashPassword } from "../../../lib/password";
 import { sendEmail, deviceCodeEmailHtml, emailVerifyHtml, twoFactorEmailHtml } from "../../../lib/email";
 import { AppError, NotFoundError, BadRequestError } from "../../../lib/errors/AppError";
+import { enqueueEmail } from "../../../lib/queue";
 import { ShopService } from "../../shop/service/shop.service";
 
 export const PRESENCE_STATUSES = ["ONLINE", "AWAY", "STUDYING", "DND", "INVISIBLE"] as const;
@@ -107,6 +108,14 @@ function newCode(): string {
 }
 
 async function mailCode(to: string, subject: string, html: string, text: string, logLabel: string) {
+  // Com Resend configurado, o envio vai para a fila (5 tentativas com
+  // backoff) e a requisição responde na hora. Se a fila estiver indisponível,
+  // envia direto e mantém o 502 em caso de falha.
+  if (process.env.RESEND_API_KEY && (await enqueueEmail({ to, subject, html, text, label: logLabel }))) {
+    console.log(`[security] Código enfileirado para ${to} (${logLabel})`);
+    return;
+  }
+
   const result = await sendEmail({ to, subject, html, text });
   if (result.sent) {
     console.log(`[security] Código enviado para ${to} (${logLabel})`);

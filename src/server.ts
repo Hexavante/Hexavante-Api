@@ -5,6 +5,8 @@ import cookie from "@fastify/cookie";
 import { logger } from "./config/logger";
 import { handleError } from "./lib/errors/errorHandler";
 import { closeRedisClient } from "./config/redis";
+import { startQueueWorkers, stopQueueWorkers } from "./lib/queue/workers";
+import { closeQueues } from "./lib/queue";
 import { authRoutes } from "./modules/auth/routes/auth.routes";
 import { impersonateRoutes } from "./modules/auth/routes/impersonate.routes";
 import { oauthRoutes } from "./modules/auth/routes/oauth.routes";
@@ -26,6 +28,7 @@ import { instructorRoutes } from "./modules/instructor/routes/instructor.routes"
 import { liveRoomRoutes } from "./modules/live-rooms/routes/live-room.routes";
 import { moderationRoutes } from "./modules/moderation/routes/moderation.routes";
 import { securityRoutes } from "./modules/security/routes/security.routes";
+import { gamificationInternalRoutes } from "./modules/internal/gamification.internal.routes";
 import { prisma } from "./config/prisma";
 import { requireAuthSecret, resolveDocsAuth } from "./config/env";
 import multipart from "@fastify/multipart";
@@ -274,6 +277,8 @@ await fastify.register(instructorRoutes);
 await fastify.register(liveRoomRoutes);
 await fastify.register(moderationRoutes);
 await fastify.register(securityRoutes);
+// Serviço-a-serviço (Web/Admin → API). Protegido por INTERNAL_API_TOKEN.
+await fastify.register(gamificationInternalRoutes);
 
 fastify.get("/", async () => {
   return {
@@ -288,6 +293,8 @@ fastify.get("/", async () => {
 const gracefulShutdown = async (signal: string) => {
   logger.info({ signal }, "Received shutdown signal");
   await fastify.close();
+  await stopQueueWorkers();
+  await closeQueues();
   await closeRedisClient();
   await prisma.$disconnect();
   logger.info("Server shutdown complete");
@@ -307,6 +314,7 @@ const start = async () => {
     const port = Number(process.env.PORT) || 3045;
     const host = process.env.HOST || "0.0.0.0";
     await fastify.listen({ port, host });
+    await startQueueWorkers();
     logger.info(`🚀 Server running on http://${host}:${port}`);
     logger.info(`📖 Documentation available at http://${host}:${port}/docs`);
   } catch (err) {

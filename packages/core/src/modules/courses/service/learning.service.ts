@@ -10,15 +10,20 @@ import {
   getNextIncompleteLesson,
 } from "../../../lib/course-learning";
 import type { LessonProgressContext, LessonCompleteResult } from "../types/learning.types";
-import type { CoinSource, XpSource } from "@prisma/client";
+import {
+  awardCoins,
+  awardXp,
+  COIN_REWARDS,
+  XP_REWARDS,
+} from "../../gamification/engine";
 
-const XP_REWARDS = { LESSON: 10, MODULE: 25, COURSE: 100, EXAM: 20, EXAM_PASS_BONUS: 30 };
-const COIN_REWARDS = { EXAM_CORRECT: 5, LESSON: 3, MODULE: 10, COURSE: 25 };
-
-function applyBoosterAmount(base: number, booster: number): number {
-  if (base <= 0) return 0;
-  return Math.max(1, Math.round(base * booster));
+/** Motor único de recompensas (injetável em testes). */
+export interface RewardEngine {
+  awardXp: typeof awardXp;
+  awardCoins: typeof awardCoins;
 }
+
+const defaultRewardEngine: RewardEngine = { awardXp, awardCoins };
 
 interface FlatLesson {
   id: string;
@@ -50,7 +55,10 @@ interface CourseModule {
 }
 
 export class LearningService {
-  constructor(private readonly learningRepository: ILearningRepository) {}
+  constructor(
+    private readonly learningRepository: ILearningRepository,
+    private readonly rewards: RewardEngine = defaultRewardEngine,
+  ) {}
 
   private flattenLessons(modules: CourseModule[]): FlatLesson[] {
     return modules.flatMap((m) =>
@@ -229,25 +237,12 @@ export class LearningService {
     const levelBefore = (await this.learningRepository.getUserXpProfile(userId)).level;
 
     if (!alreadyCompleted) {
-      const booster = await this.learningRepository.getBoosterMultiplier(userId);
       const lesson = allLessons[lessonIndex];
 
-      totalXpEarned += await this.awardUnique(
-        userId,
-        "LESSON",
-        lessonId,
-        applyBoosterAmount(XP_REWARDS.LESSON, booster),
-        `Aula concluída: ${lesson.title}`,
-        "xp",
-      );
-      totalCoinsEarned += await this.awardUnique(
-        userId,
-        "LESSON",
-        lessonId,
-        applyBoosterAmount(COIN_REWARDS.LESSON, booster),
-        `Aula concluída: ${lesson.title}`,
-        "coin",
-      );
+      // Valores BASE: booster pessoal/global e premium são aplicados pelo
+      // motor de gamificação (mesma regra do Web).
+      totalXpEarned += await this.grantXp(userId, XP_REWARDS.LESSON, "LESSON", lessonId, `Aula concluída: ${lesson.title}`);
+      totalCoinsEarned += await this.grantCoins(userId, COIN_REWARDS.LESSON, "LESSON", lessonId, `Aula concluída: ${lesson.title}`);
 
       const lessonModule = course.modules.find((m) => m.id === lesson.moduleId);
       if (lessonModule && lessonModule.lessons.length > 0) {
@@ -255,42 +250,14 @@ export class LearningService {
         const moduleCompleted =
           await this.learningRepository.countCompletedInModule(userId, moduleLessonIds);
         if (moduleCompleted === moduleLessonIds.length) {
-          totalXpEarned += await this.awardUnique(
-            userId,
-            "MODULE",
-            lessonModule.id,
-            applyBoosterAmount(XP_REWARDS.MODULE, booster),
-            `Módulo concluído: ${lessonModule.title}`,
-            "xp",
-          );
-          totalCoinsEarned += await this.awardUnique(
-            userId,
-            "MODULE",
-            lessonModule.id,
-            applyBoosterAmount(COIN_REWARDS.MODULE, booster),
-            `Módulo concluído: ${lessonModule.title}`,
-            "coin",
-          );
+          totalXpEarned += await this.grantXp(userId, XP_REWARDS.MODULE, "MODULE", lessonModule.id, `Módulo concluído: ${lessonModule.title}`);
+          totalCoinsEarned += await this.grantCoins(userId, COIN_REWARDS.MODULE, "MODULE", lessonModule.id, `Módulo concluído: ${lessonModule.title}`);
         }
       }
 
       if (progress >= 100 && !wasCourseComplete) {
-        totalXpEarned += await this.awardUnique(
-          userId,
-          "COURSE",
-          courseId,
-          applyBoosterAmount(XP_REWARDS.COURSE, booster),
-          `Curso concluído: ${course.title}`,
-          "xp",
-        );
-        totalCoinsEarned += await this.awardUnique(
-          userId,
-          "COURSE",
-          courseId,
-          applyBoosterAmount(COIN_REWARDS.COURSE, booster),
-          `Curso concluído: ${course.title}`,
-          "coin",
-        );
+        totalXpEarned += await this.grantXp(userId, XP_REWARDS.COURSE, "COURSE", courseId, `Curso concluído: ${course.title}`);
+        totalCoinsEarned += await this.grantCoins(userId, COIN_REWARDS.COURSE, "COURSE", courseId, `Curso concluído: ${course.title}`);
       }
     }
 
@@ -343,44 +310,25 @@ export class LearningService {
     }
   }
 
-  private async computeLevel(userId: string): Promise<number> {
-    const profile = await this.learningRepository.getUserXpProfile(userId);
-    return profile.level;
+  private async grantXp(
+    userId: string,
+    amount: number,
+    source: "LESSON" | "MODULE" | "COURSE",
+    sourceId: string,
+    description: string,
+  ): Promise<number> {
+    const award = await this.rewards.awardXp(userId, amount, source, sourceId, description);
+    return award?.amount ?? 0;
   }
 
-  private async awardUnique(
+  private async grantCoins(
     userId: string,
-    source: XpSource | CoinSource,
-    sourceId: string,
     amount: number,
+    source: "LESSON" | "MODULE" | "COURSE",
+    sourceId: string,
     description: string,
-    kind: "xp" | "coin",
   ): Promise<number> {
-    if (amount <= 0) return 0;
-    const has =
-      kind === "xp"
-        ? await this.learningRepository.hasXpAward(userId, source as XpSource, sourceId)
-        : await this.learningRepository.hasCoinAward(userId, source as CoinSource, sourceId);
-
-    if (has) return 0;
-
-    if (kind === "xp") {
-      await this.learningRepository.createXpAward(
-        userId,
-        amount,
-        source as XpSource,
-        sourceId,
-        description,
-      );
-    } else {
-      await this.learningRepository.createCoinAward(
-        userId,
-        amount,
-        source as CoinSource,
-        sourceId,
-        description,
-      );
-    }
-    return amount;
+    const award = await this.rewards.awardCoins(userId, amount, source, sourceId, description);
+    return award?.amount ?? 0;
   }
 }

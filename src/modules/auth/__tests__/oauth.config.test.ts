@@ -7,21 +7,16 @@ import {
 } from "../../../config/oauth";
 
 /**
- * Configuração dos 4 providers OAuth (Google, GitHub, Microsoft, Discord).
- * `tests/setup.ts` já injeta GOOGLE_* e GITHUB_* — aqui controlamos env por env.
+ * Configuração dos 3 providers OAuth (Google, Microsoft, Discord).
+ * `tests/setup.ts` já injeta GOOGLE_* — aqui controlamos env por env.
  */
 describe("getOAuthConfig", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
   });
 
-  it("expõe os 4 providers suportados", () => {
-    expect([...OAUTH_PROVIDER_IDS]).toEqual([
-      "google",
-      "github",
-      "microsoft",
-      "discord",
-    ]);
+  it("expõe os 3 providers suportados (GitHub foi removido)", () => {
+    expect([...OAUTH_PROVIDER_IDS]).toEqual(["google", "microsoft", "discord"]);
     for (const provider of OAUTH_PROVIDER_IDS) {
       expect(getOAuthConfig(provider)).not.toBeNull();
     }
@@ -65,26 +60,12 @@ describe("getOAuthConfig", () => {
     });
   });
 
-  describe("github", () => {
-    it("usa endpoints/scopes do GitHub e fica disabled sem credenciais", () => {
-      vi.stubEnv("GITHUB_CLIENT_ID", "");
-      vi.stubEnv("GITHUB_CLIENT_SECRET", "");
-
-      expect(getOAuthConfig("github")).toEqual({
-        clientId: "",
-        clientSecret: "",
-        authorizationEndpoint: "https://github.com/login/oauth/authorize",
-        tokenEndpoint: "https://github.com/login/oauth/access_token",
-        scopes: ["user:email"],
-        enabled: false,
-      });
-    });
-
-    it("fica enabled quando ID e secret estão presentes", () => {
+  describe("github (removido)", () => {
+    it("não é mais aceito, mesmo com credenciais no ambiente", () => {
       vi.stubEnv("GITHUB_CLIENT_ID", "gh-id");
       vi.stubEnv("GITHUB_CLIENT_SECRET", "gh-secret");
 
-      expect(getOAuthConfig("github")?.enabled).toBe(true);
+      expect(getOAuthConfig("github")).toBeNull();
     });
   });
 
@@ -167,7 +148,7 @@ describe("getWebUrl", () => {
 });
 
 /**
- * Token exchange: Google/Microsoft/Discord devolvem JSON, GitHub devolve
+ * Token exchange: Google/Microsoft/Discord devolvem JSON; outros provedores devolvem
  * urlencoded — o parser precisa aceitar os dois em qualquer provider.
  */
 describe("parseTokenResponse", () => {
@@ -179,7 +160,7 @@ describe("parseTokenResponse", () => {
     expect(parsed.token_type).toBe("Bearer");
   });
 
-  it("interpreta resposta urlencoded (GitHub)", () => {
+  it("interpreta resposta urlencoded", () => {
     const parsed = parseTokenResponse(
       "access_token=tok-gh&token_type=bearer&scope=user%3Aemail&expires_in=3600"
     );

@@ -35,6 +35,38 @@ export function getRedisClient(): Redis {
   return redisClient;
 }
 
+/**
+ * `true` só quando o cliente compartilhado já está conectado. Caminhos de
+ * leitura usam isso para cair direto no banco sem esperar timeout de rede.
+ */
+export function isRedisReady(): boolean {
+  return getRedisClient().status === 'ready';
+}
+
+/**
+ * Conexão dedicada para o BullMQ. Workers exigem `maxRetriesPerRequest: null`
+ * (comandos bloqueantes); produtores usam `enableOfflineQueue: false` para
+ * falhar rápido quando o Redis está fora, em vez de enfileirar em memória e
+ * travar a requisição HTTP.
+ */
+export function createBullConnection(role: 'producer' | 'worker'): Redis {
+  const password = process.env.REDIS_PASSWORD;
+  const baseUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+  const redisUrl = password
+    ? baseUrl.replace('redis://', `redis://:${encodeURIComponent(password)}@`)
+    : baseUrl;
+
+  const connection = new Redis(redisUrl, {
+    maxRetriesPerRequest: null,
+    enableOfflineQueue: role === 'worker',
+    retryStrategy: (times) => Math.min(times * 200, 5000),
+  });
+  connection.on('error', (err) => {
+    logger.error({ err, role }, 'Redis (BullMQ) connection error');
+  });
+  return connection;
+}
+
 export async function closeRedisClient(): Promise<void> {
   if (redisClient) {
     await redisClient.quit();

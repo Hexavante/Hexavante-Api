@@ -57,7 +57,10 @@ services:
       - redis_data:/data
     networks:
       - hexavante-net
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    # noeviction é OBRIGATÓRIO para as filas BullMQ: com allkeys-lru o Redis
+    # apagaria jobs (ex.: reconciliação de pagamento) quando a memória enche.
+    # Todo cache/sessão da API grava com TTL, então expira sozinho.
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s

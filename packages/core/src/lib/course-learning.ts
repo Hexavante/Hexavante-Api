@@ -53,7 +53,3 @@ export function getNextIncompleteLesson<T extends { id: string; title: string }>
 
   return null;
 }
-
-export function calculateLevel(totalXp: number): number {
-  return Math.floor(Math.sqrt(totalXp / 100));
-}

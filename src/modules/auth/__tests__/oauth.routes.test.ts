@@ -66,16 +66,15 @@ describe("OAuth routes", () => {
       const body = JSON.parse(response.payload);
       expect(Object.keys(body.providers).sort()).toEqual([
         "discord",
-        "github",
         "google",
         "microsoft",
       ]);
       for (const value of Object.values(body.providers)) {
         expect(typeof value).toBe("boolean");
       }
-      // tests/setup.ts injeta GOOGLE_* e GITHUB_*
+      // tests/setup.ts injeta GOOGLE_* (e GITHUB_*, que deve ser ignorado)
       expect(body.providers.google).toBe(true);
-      expect(body.providers.github).toBe(true);
+      expect(body.providers.github).toBeUndefined();
       expect(body.providers.microsoft).toBe(false);
       expect(body.providers.discord).toBe(false);
     });
@@ -103,7 +102,6 @@ describe("OAuth routes", () => {
       expect(JSON.parse(response.payload)).toEqual({
         providers: {
           google: false,
-          github: false,
           microsoft: false,
           discord: false,
         },
@@ -169,6 +167,16 @@ describe("OAuth routes", () => {
       expect(JSON.parse(response.payload)).toEqual({
         error: "Provider não suportado",
       });
+    });
+
+    it("GitHub foi removido: 404 mesmo com credenciais no ambiente", async () => {
+      vi.stubEnv("GITHUB_CLIENT_ID", "gh-id");
+      vi.stubEnv("GITHUB_CLIENT_SECRET", "gh-secret");
+
+      const response = await app.inject({ method: "GET", url: "/oauth/github" });
+
+      expect(response.statusCode).toBe(404);
+      expect(JSON.parse(response.payload)).toEqual({ error: "Provider não suportado" });
     });
 
     it("redireciona pro consent do Google com redirect_uri correto", async () => {
