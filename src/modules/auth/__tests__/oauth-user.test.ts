@@ -11,7 +11,7 @@ const result = { id: "user2", fullName: profile.name, username: "nomeigual_123",
 const conflict = Object.assign(new Error("unique constraint"), { code: "P2002" });
 beforeEach(() => vi.resetAllMocks());
 describe("cadastro OAuth", () => {
-  it.each(["discord","github"])("trata nomes repetidos no %s", async (provider) => {
+  it.each(["discord","google"])("trata nomes repetidos no %s", async (provider) => {
     db.account.findUnique.mockResolvedValue(null);
     db.user.findUnique.mockResolvedValue(null);
     db.user.create.mockRejectedValueOnce(conflict).mockResolvedValueOnce(result);

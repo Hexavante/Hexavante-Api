@@ -18,11 +18,32 @@ import {
   BadRequestError,
 } from "../../../lib/errors/AppError";
 import { prisma } from "../../../config/prisma";
+import {
+  CACHE_NAMESPACES,
+  responseCache,
+  stableKey,
+  type IResponseCache,
+} from "../../../lib/cache/response.cache";
+
+/** Catálogo é público e igual para todos — cache curto no Redis. */
+const CATALOG_TTL_SECONDS = 60;
 
 export class CourseService {
-  constructor(private readonly courseRepository: ICourseRepository) {}
+  constructor(
+    private readonly courseRepository: ICourseRepository,
+    private readonly cache: IResponseCache = responseCache,
+  ) {}
 
   async list(query: CourseQueryInput) {
+    return this.cache.wrap(
+      CACHE_NAMESPACES.courses,
+      `list:${stableKey({ ...query })}`,
+      CATALOG_TTL_SECONDS,
+      () => this.loadList(query),
+    );
+  }
+
+  private async loadList(query: CourseQueryInput) {
     const { courses: raw, total } = await this.courseRepository.findAllPublished(query);
 
     const courses: CourseListItem[] = raw.map((c) => ({
@@ -46,6 +67,15 @@ export class CourseService {
   }
 
   async getById(id: string): Promise<CourseDetail> {
+    return this.cache.wrap(
+      CACHE_NAMESPACES.courses,
+      `detail:${id}`,
+      CATALOG_TTL_SECONDS,
+      () => this.loadDetail(id),
+    );
+  }
+
+  private async loadDetail(id: string): Promise<CourseDetail> {
     const course = await this.courseRepository.findById(id);
     if (!course) {
       throw new NotFoundError("Curso não encontrado");
@@ -96,7 +126,9 @@ export class CourseService {
       throw new ConflictError("Já existe um curso com este slug");
     }
 
-    return this.courseRepository.create(data, instructorId);
+    const created = await this.courseRepository.create(data, instructorId);
+    await this.cache.invalidate(CACHE_NAMESPACES.courses);
+    return created;
   }
 
   async update(id: string, data: UpdateCourseInput, userId?: string) {
@@ -121,7 +153,9 @@ export class CourseService {
       }
     }
 
-    return this.courseRepository.update(id, data);
+    const updated = await this.courseRepository.update(id, data);
+    await this.cache.invalidate(CACHE_NAMESPACES.courses);
+    return updated;
   }
 
   async delete(id: string, userId?: string): Promise<void> {
@@ -140,6 +174,7 @@ export class CourseService {
     }
 
     await this.courseRepository.delete(id);
+    await this.cache.invalidate(CACHE_NAMESPACES.courses);
   }
 
   async enroll(userId: string, courseId: string) {

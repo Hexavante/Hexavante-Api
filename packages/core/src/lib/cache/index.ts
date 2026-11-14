@@ -15,3 +15,9 @@ export { EmailVerificationCache } from "./email-verification.cache";
 
 export type { IOtpCache } from "./otp.cache";
 export { OtpCache } from "./otp.cache";
+
+export type { ILeaderboardCache, LeaderboardPage } from "./leaderboard.cache";
+export { LeaderboardCache, leaderboardCache } from "./leaderboard.cache";
+
+export type { IResponseCache, CacheNamespace } from "./response.cache";
+export { ResponseCache, responseCache, CACHE_NAMESPACES, stableKey } from "./response.cache";

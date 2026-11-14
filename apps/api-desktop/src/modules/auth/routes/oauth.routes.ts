@@ -69,7 +69,7 @@ export async function oauthRoutes(fastify: FastifyInstance) {
       summary: "Listar providers OAuth configurados",
       tags: ["Auth"],
       description:
-        "Retorna quais providers OAuth (Google, GitHub, Microsoft, Discord) estão habilitados na API, ou seja, têm credenciais (CLIENT_ID/SECRET) no ambiente. Público, sem autenticação.",
+        "Retorna quais providers OAuth (Google, Microsoft, Discord) estão habilitados na API, ou seja, têm credenciais (CLIENT_ID/SECRET) no ambiente. Público, sem autenticação.",
       response: {
         200: {
           type: "object",
@@ -78,7 +78,6 @@ export async function oauthRoutes(fastify: FastifyInstance) {
               type: "object",
               properties: {
                 google: { type: "boolean", description: "Google configurado" },
-                github: { type: "boolean", description: "GitHub configurado" },
                 microsoft: { type: "boolean", description: "Microsoft configurado" },
                 discord: { type: "boolean", description: "Discord configurado" },
               },
@@ -90,7 +89,6 @@ export async function oauthRoutes(fastify: FastifyInstance) {
   }, async () => ({
     providers: {
       google: getOAuthConfig('google')?.enabled === true,
-      github: getOAuthConfig('github')?.enabled === true,
       microsoft: getOAuthConfig('microsoft')?.enabled === true,
       discord: getOAuthConfig('discord')?.enabled === true,
     },
@@ -213,7 +211,7 @@ export async function oauthRoutes(fastify: FastifyInstance) {
       summary: "Iniciar fluxo OAuth",
       tags: ["Auth"],
       description:
-        "Redireciona o usuário para a tela de consentimento do provider (Google, GitHub, etc). `callbackURL` aceita caminho relativo do web, URL http(s) de domínio permitido ou scheme nativo de app (ex.: `hexavante://auth/callback`, allowlist da env `OAUTH_NATIVE_SCHEMES`).",
+        "Redireciona o usuário para a tela de consentimento do provider (Google, Microsoft, etc). `callbackURL` aceita caminho relativo do web, URL http(s) de domínio permitido ou scheme nativo de app (ex.: `hexavante://auth/callback`, allowlist da env `OAUTH_NATIVE_SCHEMES`).",
     },
   }, async (request, reply) => {
     const { provider } = request.params as { provider: string };

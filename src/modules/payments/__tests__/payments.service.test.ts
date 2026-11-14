@@ -9,6 +9,7 @@ import type {
   MpPreferenceResult,
 } from '../types/payments.types';
 import type { Payment } from '@prisma/client';
+import { enqueuePaymentReconcile } from '../../../../packages/core/src/lib/queue';
 
 /**
  * Mock do Prisma (módulo `config/prisma` substituído inteiro — nada de DB).
@@ -30,6 +31,10 @@ vi.mock('../../../../packages/core/src/config/prisma', () => {
     },
   };
 });
+
+vi.mock('../../../../packages/core/src/lib/queue', () => ({
+  enqueuePaymentReconcile: vi.fn().mockResolvedValue(true),
+}));
 
 type TxMock = {
   payment: { updateMany: ReturnType<typeof vi.fn> };
@@ -552,7 +557,7 @@ describe('PaymentsService', () => {
       expect(gateway.getPayment).not.toHaveBeenCalled();
     });
 
-    it('falha na consulta ao MP → ignorado (o MP reenvia)', async () => {
+    it('falha na consulta ao MP → responde ignorado e agenda reconciliação na fila', async () => {
       const gateway = makeGateway();
       gateway.getPayment.mockRejectedValue(new Error('503 do MP'));
       const service = new PaymentsService(() => gateway);
@@ -561,6 +566,47 @@ describe('PaymentsService', () => {
         handled: false,
         reason: 'consulta_mp_falhou',
       });
+      expect(prisma.payment.findUnique).not.toHaveBeenCalled();
+      // O controller responde 200, então o MP não reenviaria: a fila é que
+      // garante a nova tentativa.
+      expect(enqueuePaymentReconcile).toHaveBeenCalledWith('mp_987');
+    });
+
+    it('fila indisponível → mesmo outcome, sem lançar', async () => {
+      vi.mocked(enqueuePaymentReconcile).mockResolvedValueOnce(false);
+      const gateway = makeGateway();
+      gateway.getPayment.mockRejectedValue(new Error('503 do MP'));
+      const service = new PaymentsService(() => gateway);
+
+      expect(await service.handleWebhook(webhookInput())).toEqual({
+        handled: false,
+        reason: 'consulta_mp_falhou',
+      });
+    });
+  });
+
+  describe('reconcile (job da fila hx-payments)', () => {
+    it('consulta o MP de novo e credita o pagamento aprovado', async () => {
+      const gateway = makeGateway();
+      const service = new PaymentsService(() => gateway);
+      vi.mocked(prisma.payment.findUnique).mockResolvedValue(makePayment());
+
+      const outcome = await service.reconcile('mp_987');
+
+      expect(gateway.getPayment).toHaveBeenCalledWith('mp_987');
+      expect(outcome).toMatchObject({ handled: true, paymentId: 'pay_local_1' });
+      expect(tx.payment.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'pay_local_1', status: 'PENDING' } }),
+      );
+      expect(enqueuePaymentReconcile).not.toHaveBeenCalled();
+    });
+
+    it('MP ainda fora → lança para o BullMQ tentar de novo', async () => {
+      const gateway = makeGateway();
+      gateway.getPayment.mockRejectedValue(new Error('503 do MP'));
+      const service = new PaymentsService(() => gateway);
+
+      await expect(service.reconcile('mp_987')).rejects.toThrow('503 do MP');
       expect(prisma.payment.findUnique).not.toHaveBeenCalled();
     });
 

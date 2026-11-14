@@ -2,48 +2,18 @@ import { prisma } from '../../../config/prisma'
 import { NotFoundError, ForbiddenError } from '../../../lib/errors/AppError'
 import type { ExamListItem, AttemptHistoryItem, PaginatedAttempts, ExamStats, EvolutionPoint, SubjectStat, ExamStartResponse, ExamSubmitRequest, ExamSubmitResponse } from '../types/exam.types'
 import { buildPagination } from '../../../lib/serializers/base'
-
-const XP_REWARDS = { LESSON: 10, MODULE: 25, COURSE: 100, EXAM: 20, EXAM_PASS_BONUS: 30 } as const
-const COIN_REWARDS = { EXAM_CORRECT: 5, LESSON: 3, MODULE: 10, COURSE: 25 } as const
-const PASS_SCORE = 70
-const DAILY_MULTIPLIERS = [1, 0.35, 0.12, 0.05] as const
-const SAO_PAULO_OFFSET_MS = 3 * 60 * 60 * 1000
-
-function getSaoPauloDayBounds(reference = new Date()) {
-  const spInstant = new Date(reference.getTime() - SAO_PAULO_OFFSET_MS)
-  const y = spInstant.getUTCFullYear()
-  const m = spInstant.getUTCMonth()
-  const d = spInstant.getUTCDate()
-  const start = new Date(Date.UTC(y, m, d, 3, 0, 0, 0))
-  const end = new Date(Date.UTC(y, m, d + 1, 3, 0, 0, 0))
-  return { start, end }
-}
-
-function getMultiplierForDailyAttempt(attemptNumber: number): number {
-  const index = Math.min(Math.max(attemptNumber, 1) - 1, DAILY_MULTIPLIERS.length - 1)
-  return DAILY_MULTIPLIERS[index]
-}
-
-function applyRewardAmount(base: number, daily: number, booster: number): number {
-  if (base <= 0) return 0
-  return Math.max(1, Math.round(base * daily * booster))
-}
-
-async function getBoosterMultiplier(userId: string): Promise<number> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { boosterMultiplier: true, boosterExpiresAt: true },
-  })
-  if (!user?.boosterExpiresAt || user.boosterExpiresAt <= new Date()) return 1
-  const m = user.boosterMultiplier ?? 1
-  return m > 0 ? m : 1
-}
-
-function isPremiumActive(user: { isPremium: boolean; premiumExpiresAt: Date | null }): boolean {
-  if (!user.isPremium) return false
-  if (!user.premiumExpiresAt) return true
-  return user.premiumExpiresAt > new Date()
-}
+import {
+  applyDailyRewardAmount,
+  awardCoins,
+  awardXp,
+  COIN_REWARDS,
+  EXAM_PASS_SCORE,
+  getMultiplierForDailyAttempt,
+  getSaoPauloDayBounds,
+  isPremiumActive,
+  recordSocialActivity,
+  XP_REWARDS,
+} from '../../gamification/engine'
 
 async function hasEarlyExamPass(userId: string, examSlug: string): Promise<boolean> {
   const now = new Date()
@@ -366,95 +336,53 @@ export class ExamService {
     })
     const dailyAttemptNumber = finishedToday + 1
     const dailyMultiplier = getMultiplierForDailyAttempt(dailyAttemptNumber)
-    const booster = await getBoosterMultiplier(userId)
-    const passed = finalScore >= PASS_SCORE
+    const passed = finalScore >= EXAM_PASS_SCORE
 
-    const xpBase = applyRewardAmount(XP_REWARDS.EXAM, dailyMultiplier, booster)
-    const xpBonus = passed ? applyRewardAmount(XP_REWARDS.EXAM_PASS_BONUS, dailyMultiplier, booster) : 0
-    const coinsPerCorrect = correctAnswers > 0
-      ? applyRewardAmount(COIN_REWARDS.EXAM_CORRECT, dailyMultiplier, booster)
-      : 0
-    const coinsAwarded = correctAnswers * coinsPerCorrect
+    // Valores BASE com o multiplicador diário; booster/premium são aplicados
+    // pelo motor de gamificação — mesma regra e mesmos sourceIds do Web.
+    const xpBaseAmount = applyDailyRewardAmount(XP_REWARDS.EXAM, dailyMultiplier)
+    const xpPassBonusAmount = applyDailyRewardAmount(XP_REWARDS.EXAM_PASS_BONUS, dailyMultiplier)
+    const coinPerCorrectAmount = applyDailyRewardAmount(COIN_REWARDS.EXAM_CORRECT, dailyMultiplier)
+
+    let coinsAwarded = 0
+    for (const record of answerRecords) {
+      if (!record.isCorrect || !record.alternativeId) continue
+      const coinAward = await awardCoins(
+        userId,
+        coinPerCorrectAmount,
+        'EXAM_CORRECT',
+        `${attempt.id}-q-${record.questionId}`,
+        `Questão correta: ${attempt.exam.title}`,
+      )
+      if (coinAward) coinsAwarded += coinAward.amount
+    }
+
     let xpAwarded = 0
+    const baseAward = await awardXp(
+      userId,
+      xpBaseAmount,
+      'EXAM',
+      attempt.id,
+      `Simulado finalizado: ${attempt.exam.title}`,
+    )
+    if (baseAward) xpAwarded += baseAward.amount
 
-    if (xpBase > 0) {
-      const existingBase = await prisma.xpTransaction.findUnique({
-        where: { userId_source_sourceId: { userId, source: 'EXAM', sourceId: attempt.id } },
-        select: { id: true },
-      })
-      if (!existingBase) {
-        await prisma.xpTransaction.create({
-          data: {
-            userId,
-            amount: xpBase,
-            source: 'EXAM',
-            sourceId: attempt.id,
-            description: `Simulado finalizado: ${attempt.exam.title}`,
-          },
-        })
-        xpAwarded += xpBase
-      }
-    }
+    if (passed) {
+      const passAward = await awardXp(
+        userId,
+        xpPassBonusAmount,
+        'EXAM',
+        `${attempt.id}-pass`,
+        `Aprovado no simulado: ${attempt.exam.title}`,
+      )
+      if (passAward) xpAwarded += passAward.amount
 
-    if (xpBonus > 0) {
-      const bonusSourceId = `${attempt.id}-pass`
-      const existingBonus = await prisma.xpTransaction.findUnique({
-        where: { userId_source_sourceId: { userId, source: 'EXAM', sourceId: bonusSourceId } },
-        select: { id: true },
-      })
-      if (!existingBonus) {
-        await prisma.xpTransaction.create({
-          data: {
-            userId,
-            amount: xpBonus,
-            source: 'EXAM',
-            sourceId: bonusSourceId,
-            description: `Aprovado no simulado: ${attempt.exam.title}`,
-          },
-        })
-        xpAwarded += xpBonus
-      }
-    }
-
-    if (coinsAwarded > 0) {
-      const existingCoin = await prisma.coinTransaction.findUnique({
-        where: { userId_source_sourceId: { userId, source: 'EXAM_CORRECT', sourceId: attempt.id } },
-        select: { id: true },
-      })
-      if (!existingCoin) {
-        await prisma.coinTransaction.create({
-          data: {
-            userId,
-            amount: coinsAwarded,
-            type: 'EARN',
-            source: 'EXAM_CORRECT',
-            sourceId: attempt.id,
-            description: `Questões corretas: ${attempt.exam.title}`,
-          },
-        })
-        await prisma.user.update({
-          where: { id: userId },
-          data: { coins: { increment: coinsAwarded } },
-        })
-      }
-    }
-
-    if (xpAwarded > 0) {
-      let userXp = await prisma.userXP.findUnique({ where: { userId } })
-      if (!userXp) {
-        userXp = await prisma.userXP.create({ data: { userId } })
-      }
-      let newLevel = Math.max(1, userXp.level)
-      let newCurrentXp = userXp.currentXp + xpAwarded
-      const newTotalXp = userXp.totalXp + xpAwarded
-      while (newCurrentXp >= newLevel * 100) {
-        newCurrentXp -= newLevel * 100
-        newLevel += 1
-      }
-      await prisma.userXP.update({
-        where: { userId },
-        data: { level: newLevel, currentXp: newCurrentXp, totalXp: newTotalXp },
-      })
+      await recordSocialActivity(
+        userId,
+        'SIMULADO_PASSED',
+        { simulado: attempt.exam.title, simuladoSlug: attempt.exam.slug, score: finalScore },
+        `exam:${attempt.id}`,
+      )
     }
 
     await prisma.examAttempt.update({

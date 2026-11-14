@@ -9,6 +9,8 @@ import { fileURLToPath } from "node:url";
 import { logger } from "./config/logger";
 import { prisma } from "./config/prisma";
 import { closeRedisClient } from "./config/redis";
+import { startQueueWorkers, stopQueueWorkers } from "./lib/queue/workers";
+import { closeQueues } from "./lib/queue";
 import { handleError } from "./lib/errors/errorHandler";
 import { getUploadRoot, BANNER_MAX_BYTES } from "./lib/uploads";
 import { corsPlugin } from "./plugins/cors";
@@ -89,12 +91,13 @@ export async function buildApp() {
 
 export async function start(): Promise<void> {
   const app = await buildApp();
-  const shutdown = async (signal: string) => { logger.info({signal}, "Received shutdown signal"); await app.close(); await closeRedisClient(); await prisma.$disconnect(); };
+  const shutdown = async (signal: string) => { logger.info({signal}, "Received shutdown signal"); await app.close(); await stopQueueWorkers(); await closeQueues(); await closeRedisClient(); await prisma.$disconnect(); };
   process.once("SIGTERM", () => void shutdown("SIGTERM"));
   process.once("SIGINT", () => void shutdown("SIGINT"));
   const port = Number(process.env.MOBILE_PORT || process.env.PORT || 3047);
   const host = process.env.HOST || "0.0.0.0";
   await app.listen({port,host});
+  await startQueueWorkers();
   logger.info({port,host,platform:PLATFORM}, "API listening");
 }
 

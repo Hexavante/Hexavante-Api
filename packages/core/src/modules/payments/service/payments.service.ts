@@ -17,6 +17,7 @@ import {
   type PaymentsCatalog,
 } from '../../../config/commerce';
 import { MercadoPagoGateway } from '../client/mp.client';
+import { enqueuePaymentReconcile } from '../../../lib/queue';
 import {
   canTransition,
   computePremiumExpiry,
@@ -153,13 +154,35 @@ export class PaymentsService {
     try {
       mpPayment = await this.gatewayFactory().getPayment(id);
     } catch (error) {
+      // O controller sempre responde 200, então o MP NÃO reenvia esta
+      // notificação. Sem a fila, o pagamento ficaria PENDING para sempre.
+      const scheduled = await enqueuePaymentReconcile(id);
       logger.warn(
-        { err: error, mpNotificationId: id },
-        'webhook: falha ao consultar pagamento no Mercado Pago (o MP reenviará)',
+        { err: error, mpNotificationId: id, reconcileScheduled: scheduled },
+        scheduled
+          ? 'webhook: falha ao consultar pagamento no Mercado Pago — reconciliação agendada na fila'
+          : 'webhook: falha ao consultar pagamento no Mercado Pago — fila indisponível, reconciliação NÃO agendada',
       );
       return { handled: false, reason: 'consulta_mp_falhou' };
     }
 
+    return this.applyFromSnapshot(mpPayment);
+  }
+
+  /**
+   * Reconciliação disparada pela fila (`hx-payments`). A assinatura já foi
+   * validada no webhook original; aqui o `id` é consultado de novo na origem
+   * com o nosso token. Erro na consulta é relançado para o BullMQ tentar
+   * novamente com backoff.
+   */
+  async reconcile(mpPaymentId: string): Promise<WebhookOutcome> {
+    const mpPayment = await this.gatewayFactory().getPayment(mpPaymentId);
+    const outcome = await this.applyFromSnapshot(mpPayment);
+    logger.info({ mpPaymentId, outcome }, 'reconciliação de pagamento concluída');
+    return outcome;
+  }
+
+  private async applyFromSnapshot(mpPayment: MpPaymentSnapshot): Promise<WebhookOutcome> {
     const payment = await this.findLocalPayment(mpPayment);
     if (!payment) {
       logger.warn(
